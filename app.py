@@ -1,10 +1,13 @@
 """RepoLens — Agentic onboarding assistant for GitHub repos."""
 
+import json
 import streamlit as st
 import requests
 import os
 from dotenv import load_dotenv
 from groq import Groq
+
+from tools import TOOL_DEFINITIONS, TOOL_MAP, set_repo
 
 load_dotenv()
 
@@ -55,127 +58,121 @@ def fetch_repo_tree(owner: str, repo: str) -> list[str]:
     return []
 
 
-def summarize_repo(readme: str, files: list[str], user_level: str) -> str:
-    """Call Groq (Llama) to produce a detailed repo summary."""
+# ---------------------------------------------------------------------------
+# Agentic tool-calling loop
+# ---------------------------------------------------------------------------
+SYSTEM_PROMPT = """You are RepoLens, an expert developer onboarding assistant.
+
+You have 3 tools to explore GitHub repositories:
+- list_files(path) — list files/folders at a path (use "" for root)
+- read_file(path) — read a file's contents
+- search_docs(query) — search for a keyword across the repo
+
+WORKFLOW:
+1. Start by listing the root directory to understand the project structure.
+2. Read key files (README, main entry points, configs) to gather evidence.
+3. Search for specific terms if the user's question requires it.
+4. Only after gathering enough evidence, produce your final answer.
+
+Always base your answers on actual file contents you've read — never guess.
+Cite the files you read as evidence."""
+
+
+def run_agent(user_question: str, readme: str, user_level: str, status) -> str:
+    """Run the tool-calling agent loop.
+
+    The model decides which tools to call, we execute them, feed results
+    back, and repeat until the model produces a final text answer.
+    """
     client = Groq(api_key=os.environ["GROQ_API_KEY"])
 
-    file_listing = "\n".join(files[:60])
+    messages = [
+        {"role": "system", "content": SYSTEM_PROMPT},
+        {
+            "role": "user",
+            "content": (
+                f"The user is a **{user_level}** developer.\n\n"
+                f"Here is the repo README for initial context:\n"
+                f"```\n{readme[:6000]}\n```\n\n"
+                f"User question: {user_question}"
+            ),
+        },
+    ]
 
-    prompt = f"""You are RepoLens, an expert at onboarding developers to new codebases.
+    max_iterations = 8  # safety cap
+    tool_calls_log = []  # track for display
 
-The user is a **{user_level}** developer. Tailor your language accordingly and provide DETAILED explanations.
+    for i in range(max_iterations):
+        status.update(label=f"Thinking... (step {i + 1})")
 
-Given the README and file tree of a GitHub repository, produce a comprehensive structured summary:
+        response = client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            messages=messages,
+            tools=TOOL_DEFINITIONS,
+            tool_choice="auto",
+            temperature=0.3,
+            max_tokens=3000,
+        )
 
-## 1. **Project Overview**
-Provide a 2-3 paragraph detailed explanation of:
-- What this repository does in simple terms
-- What problems it solves
-- Who would benefit from using it
-- Main purpose and goals
+        msg = response.choices[0].message
 
-## 2. **Tech Stack & Dependencies**
-List and briefly explain:
-- Primary programming language(s)
-- Key frameworks/libraries used
-- Database systems (if any)
-- External services/APIs (if any)
+        # If no tool calls, we have the final answer
+        if not msg.tool_calls:
+            return msg.content, tool_calls_log
 
-## 3. **Directory Structure & Key Components**
-Explain the organization:
-- Main folder structure (what each folder does)
-- Key subdirectories and their purposes
-- Entry point files
+        # Process each tool call
+        messages.append(msg)  # add assistant message with tool_calls
 
-## 4. **Key Files to Read First**
-List up to 8 files with detailed reasons (2-3 sentences each):
-- Why read this file
-- What it does
-- When you need it
+        for tool_call in msg.tool_calls:
+            fn_name = tool_call.function.name
+            fn_args = json.loads(tool_call.function.arguments)
 
-## 5. **Detailed Setup & Installation Instructions**
-Provide step-by-step guide:
-- Prerequisites (languages, tools needed)
-- Installation steps with commands
-- Configuration steps
-- How to verify installation worked
+            status.update(label=f"🔧 Calling {fn_name}({', '.join(f'{k}={v!r}' for k, v in fn_args.items())})")
 
-## 6. **How to Run & Use**
-Detailed usage guide:
-- How to start the application
-- What to expect when running
-- How to use the main features
-- Example commands or workflows
+            # Execute the tool
+            fn = TOOL_MAP.get(fn_name)
+            if fn:
+                result = fn(**fn_args)
+            else:
+                result = f"Unknown tool: {fn_name}"
 
-## 7. **Architecture Deep Dive**
-Explain in detail:
-- High-level architecture (main layers/modules)
-- How components interact
-- Data flow through the system
-- Important design patterns used
-- Scalability considerations
+            tool_calls_log.append({
+                "tool": fn_name,
+                "args": fn_args,
+                "result_preview": result[:200],
+            })
 
-## 8. **Development Workflow**
-For developers who want to contribute:
-- Development setup (different from user setup)
-- How to run tests
-- Coding standards/conventions
-- Git workflow for contributions
-- Building and deployment process
+            # Feed result back to the model
+            messages.append({
+                "role": "tool",
+                "tool_call_id": tool_call.id,
+                "content": result,
+            })
 
-## 9. **Code Quality & Testing**
-Information about:
-- Test coverage
-- Quality assurance practices
-- CI/CD pipelines
-- Documentation standards
-- Performance considerations
-
-## 10. **Good First Contributions for Beginners**
-Suggest 4-5 specific, actionable ideas:
-- Feature ideas (with difficulty level)
-- Bug fixes
-- Documentation improvements
-- Testing opportunities
-- Each with "Why this helps" explanation
-
-## 11. **Common Gotchas & Troubleshooting**
-Share practical knowledge:
-- Common mistakes beginners make
-- Known issues
-- How to debug problems
-- Common error messages and solutions
-
-## 12. **Learning Resources & Next Steps**
-After understanding the repo, where to go:
-- Important documentation to read
-- Example projects using this
-- Community or discussion forums
-- Related projects to learn from
-
----
-README:
-{readme[:10000]}
-
----
-File tree (top-level):
-{file_listing}
-
-IMPORTANT:
-- Be detailed and comprehensive
-- Use markdown formatting for clarity
-- Include code examples where helpful
-- Make it understandable for {user_level} level developers
-- Total response should be thorough but readable (2000-3000 words)
-"""
-
+    # If we hit the cap, ask model to wrap up
+    messages.append({
+        "role": "user",
+        "content": "Please provide your final answer now based on what you've gathered.",
+    })
     response = client.chat.completions.create(
         model="llama-3.3-70b-versatile",
-        messages=[{"role": "user", "content": prompt}],
+        messages=messages,
         temperature=0.3,
         max_tokens=3000,
     )
-    return response.choices[0].message.content
+    return response.choices[0].message.content, tool_calls_log
+
+
+# ---------------------------------------------------------------------------
+# Default question options
+# ---------------------------------------------------------------------------
+QUESTIONS = [
+    "What does this repo do?",
+    "What files should I read first?",
+    "How do I run it?",
+    "What is the architecture?",
+    "What would be a good first contribution?",
+]
 
 
 # --- Run ---
@@ -183,33 +180,60 @@ if repo_url:
     parsed = parse_repo(repo_url)
     if not parsed:
         st.error("Please enter a valid GitHub repo URL (https://github.com/owner/repo)")
+    elif "GROQ_API_KEY" not in os.environ:
+        st.error("Set your `GROQ_API_KEY` environment variable to get AI summaries.")
     else:
         owner, repo = parsed
-        with st.spinner(f"Analyzing **{owner}/{repo}**..."):
-            readme = fetch_readme(owner, repo)
-            files = fetch_repo_tree(owner, repo)
+        set_repo(owner, repo)  # configure tools for this repo
 
-            if not readme:
-                st.warning("Could not fetch README. The repo may be private or have no README.")
-            else:
-                col1, col2 = st.columns([2, 1])
-                with col2:
-                    st.markdown("**📂 Top-level files**")
-                    for f in files[:30]:
-                        st.text(f)
+        # Fetch baseline data
+        readme = fetch_readme(owner, repo)
+        files = fetch_repo_tree(owner, repo)
 
-                with col1:
-                    if "GROQ_API_KEY" not in os.environ:
-                        st.error(
-                            "Set your `GROQ_API_KEY` environment variable to get AI summaries. "
-                            "For now, here's the raw README."
-                        )
-                        st.markdown(readme[:3000])
-                    else:
+        if not readme:
+            st.warning("Could not fetch README. The repo may be private or have no README.")
+        else:
+            # Layout
+            col1, col2 = st.columns([2, 1])
+
+            with col2:
+                st.markdown("**📂 Top-level files**")
+                for f in files[:30]:
+                    st.text(f)
+
+            with col1:
+                # Quick-pick buttons
+                st.markdown("**Ask a question about this repo:**")
+                selected_q = None
+                button_cols = st.columns(3)
+                for idx, q in enumerate(QUESTIONS):
+                    if button_cols[idx % 3].button(q, key=f"q_{idx}"):
+                        selected_q = q
+
+                # Or type your own
+                custom_q = st.text_input(
+                    "Or type your own question:",
+                    placeholder="e.g. How does authentication work?",
+                )
+
+                question = custom_q if custom_q else selected_q
+
+                if question:
+                    with st.status(f"Analyzing **{owner}/{repo}**...", expanded=True) as status:
                         try:
-                            summary = summarize_repo(readme, files, level)
-                            st.markdown(summary)
+                            answer, tool_log = run_agent(question, readme, level, status)
+                            status.update(label="Done!", state="complete")
                         except Exception as e:
-                            st.warning(f"⚠️ **API Error**: {e}")
-                            st.markdown("**Raw README:**")
-                            st.markdown(readme[:3000])
+                            st.error(f"Error: {e}")
+                            answer, tool_log = None, []
+
+                    if answer:
+                        st.markdown("---")
+                        st.markdown(answer)
+
+                        # Show tool calls in expander
+                        if tool_log:
+                            with st.expander(f"🔧 Tool calls made ({len(tool_log)})"):
+                                for call in tool_log:
+                                    st.markdown(f"**{call['tool']}**({call['args']})")
+                                    st.code(call["result_preview"], language="text")

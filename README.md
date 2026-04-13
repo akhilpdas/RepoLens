@@ -8,20 +8,25 @@ Perfect for quickly understanding new codebases, exploring open-source projects,
 
 - 📂 **Fetches repo metadata** — Pulls README and file tree from any public GitHub repository
 - 🤖 **AI-powered summaries** — Generates structured insights using Groq (Llama 3.3-70b)
+- 🔧 **Agentic tool calling** — Model autonomously calls `list_files`, `read_file`, and `search_docs` to explore repos
 - 👥 **Experience-level tailored** — Adapts explanations for beginner, intermediate, or advanced developers
+- 💬 **Interactive Q&A** — Ask any question about the repo with quick-pick buttons or custom input
+- 🔍 **Transparency** — See exactly which tools the agent called and what it found
 - 🚀 **Fast & free** — No API quota limits on the free Groq tier
 - 💾 **View file structure** — See top-level files and directories at a glance
 - 🎨 **Clean UI** — Built with Streamlit for a smooth user experience
 
 ## 📋 What You Get
 
-For any repo, RepoLens generates:
+Ask any question about a repo, or use the quick-pick buttons:
 
-1. **What this repo does** — One-paragraph summary
-2. **Key files to read first** — Up to 5 files with explanations
-3. **How to run it** — Step-by-step instructions extracted from README
-4. **Architecture overview** — Main components and layers
-5. **Good first contribution ideas** — 2-3 beginner-friendly tasks
+- "What does this repo do?"
+- "What files should I read first?"
+- "How do I run it?"
+- "What is the architecture?"
+- "What would be a good first contribution?"
+
+The AI agent autonomously explores the repo using tools — listing directories, reading files, and searching code — then gives evidence-based answers.
 
 ## 🛠️ Tech Stack
 
@@ -136,7 +141,8 @@ port = 8501
 
 ```
 RepoLens/
-├── app.py                 # Main Streamlit application
+├── app.py                 # Main Streamlit application (agentic UI + tool loop)
+├── tools.py               # Tool definitions (list_files, read_file, search_docs)
 ├── requirements.txt       # Python dependencies (pip freeze)
 ├── .env.example          # Environment variables template
 ├── .env                  # Environment variables (local, gitignored)
@@ -150,14 +156,19 @@ RepoLens/
 ## 🔍 How It Works
 
 1. **URL Parsing** — Extracts owner/repo from GitHub URL
-2. **Metadata Fetching** — Calls GitHub REST API to get README and file tree
-3. **AI Summary** — Sends README + file list to Groq (Llama 3.3-70b)
-4. **Formatting** — Displays structured summary with Streamlit
+2. **Baseline Fetch** — Gets README and file tree via GitHub API
+3. **Agentic Tool Loop** — The AI model decides which tools to call:
+   - `list_files(path)` — Browse directories at any depth
+   - `read_file(path)` — Read actual file contents from the repo
+   - `search_docs(query)` — Search code across the entire repo
+4. **Iterative Exploration** — Model calls tools, gets results, calls more tools (up to 8 steps)
+5. **Evidence-Based Answer** — Final response cites actual files it read
+6. **Transparency** — Expandable panel shows all tool calls made
 
 ### API Calls Made
 
-- **GitHub API**: No auth required for public repos
-- **Groq API**: Free tier (no daily quota limits)
+- **GitHub API**: No auth required for public repos (contents, trees, search)
+- **Groq API**: Free tier with function/tool calling support
 
 ## 🆓 Free Tier Limits
 
