@@ -8,4 +8,7 @@ dist/
 build/
 .chroma/
 *.db
+*.db-shm
+*.db-wal
+*.db-journal
 .streamlit/secrets.toml
