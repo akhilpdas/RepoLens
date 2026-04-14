@@ -1,15 +1,6 @@
-# RepoLens - Everything You Need to Know 📖
+# RepoLens - Everything You Need to Know
 
-A comprehensive guide explaining RepoLens in detail - what it does, how it works, and why it's useful.
-
----
-
-## Quick Overview
-
-**RepoLens** is an AI-powered tool that reads GitHub repositories and gives you a detailed, easy-to-understand summary in seconds.
-
-### In One Sentence:
-> **Paste a GitHub URL → Get a comprehensive summary of what the repository does, how to use it, and where to start learning.**
+A comprehensive guide explaining the current RepoLens system in detail: what it does, how every component works, and why each design decision was made.
 
 ---
 
@@ -18,959 +9,840 @@ A comprehensive guide explaining RepoLens in detail - what it does, how it works
 1. [What is RepoLens?](#what-is-repolens)
 2. [What Problem Does It Solve?](#what-problem-does-it-solve)
 3. [Technology Stack](#technology-stack)
-4. [How It Works (Complete Flow)](#how-it-works-complete-flow)
-5. [What Results Do You Get?](#what-results-do-you-get)
-6. [Where Is It Used?](#where-is-it-used)
-7. [Key Implementation Details](#key-implementation-details)
-8. [Conditions & Limitations](#conditions--limitations)
-9. [Enhancements Made](#enhancements-made)
+4. [System Architecture Overview](#system-architecture-overview)
+5. [The 5-Phase Pipeline](#the-5-phase-pipeline)
+6. [Module-by-Module Breakdown](#module-by-module-breakdown)
+7. [Multi-Agent Design](#multi-agent-design)
+8. [RAG: Retrieval-Augmented Generation](#rag-retrieval-augmented-generation)
+9. [Memory System](#memory-system)
+10. [Tracing and Observability](#tracing-and-observability)
+11. [Evaluation Framework](#evaluation-framework)
+12. [The User Interface](#the-user-interface)
+13. [Data Flow: End to End](#data-flow-end-to-end)
+14. [Conditions and Limitations](#conditions-and-limitations)
 
 ---
 
 ## What is RepoLens?
 
-### Simple Definition
+RepoLens is an **agentic GitHub repository onboarding assistant**. You give it a public GitHub repo URL and ask it any question about that repo. It does not guess or generate a generic answer from its training data — it actively investigates: it reads the actual files, searches the codebase, and retrieves relevant chunks before writing an answer. A separate Reviewer agent then checks that answer for quality before you see it.
 
-RepoLens is like a **smart GitHub librarian** that:
+### What It Does vs. What It Does Not Do
 
-1. **Reads** any public GitHub repository
-2. **Understands** what it does by analyzing the code and documentation
-3. **Explains** everything in clear, organized language
-4. **Teaches** you how to use it and where to start learning
+RepoLens is not a simple "summarize the README" tool. Each question triggers a multi-phase pipeline:
+
+- A Planner agent breaks the question into a structured investigation plan
+- A Researcher agent executes that plan step-by-step, calling tools against the live GitHub API
+- ChromaDB semantic search retrieves the most relevant code and documentation chunks
+- A Synthesizer writes the final answer grounded in the retrieved evidence
+- A Reviewer checks for hallucinations, missing citations, and vague instructions
+- If the answer scores below 6/10, it is automatically revised
+
+Every factual claim in the output must cite a source file. The system refuses to guess.
 
 ### Real-World Analogy
 
 ```
-Imagine you walk into a massive library:
-- Thousands of books on shelves
-- No clear organization
-- No librarian to help
+Traditional approach (paste README into ChatGPT):
+- Gets a generic summary based on what the README says
+- Hallucinates file names and commands it has never seen
+- Cannot look inside source files or configs
+- Cannot search the codebase
 
-Traditional way (without RepoLens):
-1. Pick a random book
-2. Flip through pages
-3. Try to understand what it's about
-4. Get frustrated after 30 minutes
-5. Give up
-
-With RepoLens:
-1. Tell it which book you're interested in
-2. It reads the entire book in 5 seconds
-3. It explains: "This book is about X, here's the key chapters, here's how to understand it"
-4. You're ready to learn! ✅
+RepoLens agentic approach:
+- Reads the actual files via GitHub API
+- Searches for specific concepts across the whole repo
+- RAG retrieval finds the most relevant passages
+- Reviewer catches any claims that lack evidence
 ```
 
 ---
 
 ## What Problem Does It Solve?
 
-### The Problem: Code Comprehension Takes Too Long
+### The Code Comprehension Problem
 
-**Scenario: You're learning a new programming project**
+When you encounter an unfamiliar repository, you face several problems simultaneously:
 
-```
-❌ WITHOUT RepoLens:
+- The README may be incomplete or outdated
+- The file structure alone does not explain how components connect
+- Config files, build scripts, and package manifests are scattered
+- Setup instructions vary in quality and specificity
+- You do not know which files matter most
 
-Monday:
-- Clone repo: 2 minutes
-- Read README: 10 minutes
-- Browse files: 15 minutes
-- Try to understand structure: 30 minutes
-- Total: ~1 hour for basic understanding
+RepoLens solves this by acting as an automated investigator. It knows which files to prioritize (README, package manifests, Dockerfiles, docs/ folders, entry-point source files), indexes them into a searchable vector store, and then uses that knowledge base to answer questions with evidence.
 
-Tuesday:
-- Still confused about architecture
-- Ask teammates questions
-- Spend more time on documentation
+### The Hallucination Problem
 
-Wednesday:
-- Finally understand the basics
-- Still missing key details
-- Total time: ~3 hours
+General-purpose LLMs frequently hallucinate when asked about specific codebases because they have no access to the actual files. They generate plausible-sounding but wrong file names, function names, and commands. RepoLens addresses this with two mechanisms:
 
-❌ Problem: Too much time wasted!
-
-
-✅ WITH RepoLens:
-
-Monday:
-- Paste GitHub URL: 5 seconds
-- Read comprehensive summary: 5 minutes
-- Understand: architecture, key files, how to run, contribution ideas
-- Total: ~10 minutes for detailed understanding!
-
-❌ vs ✅ = 18x FASTER! 🚀
-```
-
-### The Problem: Too Much Information
-
-```
-When you look at a new repository:
-├─ 100+ files to understand
-├─ 5,000+ lines of code
-├─ Unknown dependencies
-├─ Unclear architecture
-├─ Missing documentation
-└─ Complex project structure
-
-Result: Overwhelmed! 😫
-
-RepoLens solves this by:
-1. Reading everything
-2. Understanding the big picture
-3. Extracting only important information
-4. Presenting it in logical order
-5. Tailoring to your experience level
-```
+1. **RAG grounding**: Every researcher prompt is seeded with real chunks retrieved from the actual indexed files
+2. **Reviewer gate**: A dedicated Reviewer agent checks every answer for unsupported claims, bad file references, and hallucinated technical details before the answer reaches the user
 
 ---
 
 ## Technology Stack
 
-### Layer 1: User Interface - **Streamlit**
+### Layer 1: User Interface — Streamlit
 
-**What:** A Python web framework that turns Python scripts into beautiful web apps
+Streamlit is a Python framework that converts Python scripts into interactive web applications without requiring HTML, CSS, or JavaScript. RepoLens uses Streamlit's `st.status` widgets to show live pipeline progress, `st.tabs` to organize output into panels, and `st.session_state` to carry state across interactions.
 
-**Why Streamlit:**
-```
-Old Way (Traditional Web Development):
-- Learn HTML (structure)
-- Learn CSS (styling)  
-- Learn JavaScript (interaction)
-- Learn Node.js or Python backend
-- Deploy on server
-→ 100 hours of learning
+Key Streamlit features used:
+- `st.status` — collapsible live-updating status blocks for each pipeline phase
+- `st.tabs` — organizes Evidence, Memory, Trace, and Details panels below the answer
+- `st.session_state` — holds the `SessionState`, `RunTrace`, `RepoRetriever`, and review result between renders
+- `st.sidebar` — houses repo URL input, experience level selector, explanation style selector, and preset question buttons
 
-New Way (Streamlit):
-- Write Python code
-- Run it
-- Automatically becomes a webpage
-→ 10 hours of learning
-```
+### Layer 2: LLM Inference — Groq + Llama 3.3-70b
 
-**What Streamlit Does in RepoLens:**
-```python
-# 1. Creates the title
-st.title("🔍 RepoLens")
+All LLM calls go through the Groq API using the `llama-3.3-70b-versatile` model. Groq runs this model on custom LPU hardware, delivering inference in approximately 2-5 seconds per call.
 
-# 2. Creates sidebar with dropdown
-level = st.sidebar.selectbox("Your level", ["beginner", "intermediate", "advanced"])
-
-# 3. Creates input field
-repo_url = st.text_input("Paste GitHub URL")
-
-# 4. Creates loading spinner
-with st.spinner("Analyzing..."):
-    # Process happens here
-
-# 5. Displays results as formatted text
-st.markdown(summary)
-
-# 6. Displays file list in columns
-col1, col2 = st.columns([2, 1])
-with col2:
-    st.markdown("Files")
-    for file in files:
-        st.text(file)
-```
-
-### Layer 2: Backend Logic - **Python**
-
-**What:** Programming language that runs the application logic
-
-**Why Python:**
-```
-✅ Easy to learn and read
-✅ Great libraries for everything
-✅ Perfect for AI/ML work
-✅ Strong open-source community
-✅ Runs everywhere (Windows, Mac, Linux)
-```
-
-**What Python Does:**
-- Parses GitHub URLs
-- Makes API calls
-- Processes responses
-- Manages the workflow
-- Handles errors
-
-### Layer 3: External Services
-
-#### API 1: **GitHub REST API** 📚
-
-**Purpose:** Fetch public repository information
-
-**What It Provides:**
-```
-✅ README.md content
-✅ File/folder listing
-✅ Repository metadata
-✅ Commit history (optional)
-✅ All available for public repos!
-```
-
-**How We Use It:**
+The model is used with **function calling** (also called tool use). The Researcher agent receives a list of tool definitions in JSON Schema format and the model responds with structured tool-call requests that the application dispatches to the real GitHub API.
 
 ```python
-# Call 1: Get README
-GET https://api.github.com/repos/anthropics/claude-code/readme
-Header: Accept: application/vnd.github.v3.raw
-→ Response: Full README text
+# From app.py — tool-augmented researcher call
+call_kwargs = {
+    "model": "llama-3.3-70b-versatile",
+    "messages": messages,
+    "temperature": 0.3,
+    "max_tokens": 1500,
+}
+if step.suggested_tools:
+    call_kwargs["tools"] = TOOL_DEFINITIONS
+    call_kwargs["tool_choice"] = "auto"
 
-# Call 2: Get file list
-GET https://api.github.com/repos/anthropics/claude-code/git/trees/HEAD
-→ Response: JSON with all files and folders
+response = client.chat.completions.create(**call_kwargs)
 ```
 
-**Why GitHub API:**
+The Planner and Reviewer use `response_format={"type": "json_object"}` to force structured JSON output, which is then parsed into `Plan`/`PlanStep` and review result dictionaries.
+
+### Layer 3: Vector Search — ChromaDB
+
+ChromaDB is an open-source embedded vector database. RepoLens uses it to index chunked file contents and retrieve the most semantically similar passages for a given question. It runs in-process (no server required) using `chromadb.Client()` with anonymous telemetry disabled.
+
+Each collection uses cosine similarity (`hnsw:space: cosine`). Documents are indexed as plain text; ChromaDB uses its built-in embedding model to vectorize them. Chunks are sized at 800 characters with 200-character overlap to preserve context across boundaries.
+
+### Layer 4: Persistent Memory — SQLite
+
+User preferences and question history are stored in `repolens_memory.db` using Python's built-in `sqlite3` module with WAL journal mode for write performance. Two tables are maintained: `user_profile` (one row, stores skill level, explanation style, last repo) and `question_history` (rolling window of 20 most recent questions with answer previews and quality scores).
+
+### Layer 5: Data Access — GitHub REST API
+
+All repository content is fetched live from the GitHub REST API with no authentication required for public repos. Three endpoints are used:
+
 ```
-✅ FREE for public repos
-✅ No authentication required
-✅ 60 requests/hour for each IP
-✅ Instant responses (milliseconds)
-✅ No rate limiting for basic requests
-```
+GET /repos/{owner}/{repo}/readme
+    Accept: application/vnd.github.v3.raw
+    → Returns raw README text
 
-#### API 2: **Groq API** 🚀
+GET /repos/{owner}/{repo}/git/trees/HEAD?recursive=1
+    → Returns full file tree (all paths and types)
 
-**Purpose:** AI-powered text generation and understanding
+GET /repos/{owner}/{repo}/contents/{path}
+    → Returns file metadata + base64-encoded content
 
-**What It Does:**
-```
-Input (what you send):
-- GitHub README content
-- List of files
-- Instruction about what to generate
-- Experience level (to tailor language)
-
-Processing (what happens inside):
-- AI reads and understands the input
-- Analyzes structure and purpose
-- Organizes information logically
-- Generates human-friendly explanations
-- Formats as markdown
-
-Output (what you get):
-- Detailed summary (2000-3000 words)
-- 12 organized sections
-- Formatted markdown
-- Code examples where helpful
+GET /search/code?q={query}+repo:{owner}/{repo}
+    → Returns matching file paths with text fragments
 ```
 
-**The AI Model:** **Llama 3.3-70b**
-```
-What it is:
-- 70 billion parameters (very smart AI)
-- Created by Meta (open source)
-- Specialized in code understanding
-- General knowledge across all domains
-
-Why Llama 3.3-70b:
-✅ Advanced reasoning capability
-✅ Understands code and technical concepts
-✅ Fast inference (2-5 seconds)
-✅ Free to use via Groq
-✅ Better than GPT-3.5 for many tasks
-```
-
-**Why Groq (Not OpenAI)?**
-
-| Aspect | Groq | OpenAI |
-|--------|------|--------|
-| **Cost** | 🟢 FREE | 🔴 $0.05-0.15 per request |
-| **Daily Limit** | 🟢 Unlimited | 🔴 500 requests/month |
-| **Setup Time** | 🟢 2 minutes | 🔴 Account + Credit card |
-| **Speed** | 🟢 2-5 seconds | 🟡 5-10 seconds |
-| **AI Quality** | 🟢 Llama 3.3-70b | 🟢 GPT-4 / 3.5 |
-| **Best For** | Code & Free Use | Production Apps |
+The unauthenticated rate limit is 60 requests/hour for most endpoints and 10 requests/minute for code search.
 
 ---
 
-## How It Works (Complete Flow)
-
-### The Journey: URL to Summary
+## System Architecture Overview
 
 ```
-┌─────────────────────────────────────────────────────┐
-│ STEP 1: YOU PASTE URL                              │
-│ "https://github.com/anthropics/claude-code"        │
-└────────────────┬────────────────────────────────────┘
-                 │
-                 ▼
-┌─────────────────────────────────────────────────────┐
-│ STEP 2: APP VALIDATES URL                          │
-│ ✅ Correct format?                                 │
-│ ✅ Contains owner and repo?                        │
-│ ✅ Not empty?                                      │
-└────────────────┬────────────────────────────────────┘
-                 │
-                 ▼
-┌─────────────────────────────────────────────────────┐
-│ STEP 3: EXTRACT PARTS                              │
-│ Input: "https://github.com/anthropics/claude-code" │
-│ Output: owner = "anthropics"                        │
-│         repo = "claude-code"                        │
-└────────────────┬────────────────────────────────────┘
-                 │
-      ┌──────────┴──────────┐
-      │                     │
-      ▼                     ▼
-┌──────────────┐     ┌──────────────────┐
-│ GITHUB API   │     │ GITHUB API       │
-│ Call #1      │     │ Call #2          │
-│ GET README   │     │ GET FILE LIST    │
-└──────┬───────┘     └────────┬─────────┘
-│ Result:              │ Result:
-│ Full README text     │ ["app.py",
-│ (8000+ chars)        │  "README.md",
-│                      │  "setup.py", ...]
-       │                       │
-       └───────────┬───────────┘
-                   │ Combine results
-                   ▼
-        ┌─────────────────────┐
-        │ BUILD AI PROMPT     │
-        ├─────────────────────┤
-        │ "You are an expert  │
-        │  code analyst.      │
-        │  Here's a README:   │
-        │  [README content]   │
-        │                     │
-        │  Here's the files:  │
-        │  [file list]        │
-        │                     │
-        │  User level:        │
-        │  beginner           │
-        │                     │
-        │  Please generate:   │
-        │  1. Overview        │
-        │  2. Tech Stack      │
-        │  3. Setup           │
-        │  ... 9 more sections│
-        └─────────┬───────────┘
-                  │
-                  ▼
-        ┌─────────────────────┐
-        │ SEND TO GROQ API    │
-        │ Model: Llama 3.3-70b│
-        │ Max response: 3000  │
-        │ tokens (~2000 words)│
-        └─────────┬───────────┘
-                  │
-                  ▼ (AI Processes)
-        ┌─────────────────────┐
-        │ GROQ AI THINKS      │
-        │ (2-5 seconds)       │
-        │                     │
-        │ - Reads README      │
-        │ - Analyzes files    │
-        │ - Understands arch  │
-        │ - Plans response    │
-        │ - Writes content    │
-        └─────────┬───────────┘
-                  │
-                  ▼
-        ┌─────────────────────────────────┐
-        │ AI GENERATES 12 SECTIONS:       │
-        ├─────────────────────────────────┤
-        │ 1. Project Overview (3 para)    │
-        │ 2. Tech Stack (with details)    │
-        │ 3. Directory Structure          │
-        │ 4. Key Files (8 files, 2-3 lines each)
-        │ 5. Setup Instructions (step-by-step)
-        │ 6. How to Run & Use             │
-        │ 7. Architecture Deep Dive       │
-        │ 8. Development Workflow         │
-        │ 9. Code Quality & Testing       │
-        │ 10. First Contributions (4-5 ideas)
-        │ 11. Troubleshooting & Gotchas   │
-        │ 12. Resources & Next Steps      │
-        │                                 │
-        │ Total: 2000-3000 words ✨      │
-        └─────────┬───────────────────────┘
-                  │
-                  ▼
-        ┌─────────────────────────────────┐
-        │ RETURN RESPONSE TO APP           │
-        │ Format: Markdown with sections   │
-        │ Code blocks included             │
-        │ Well-formatted                   │
-        └─────────┬───────────────────────┘
-                  │
-                  ▼
-        ┌─────────────────────────────────┐
-        │ DISPLAY TO YOU                  │
-        ├─────────────────────────────────┤
-        │ Left Column (70%):              │
-        │ - Formatted markdown summary    │
-        │ - All 12 sections               │
-        │ - Easy to read                  │
-        │ - Scrollable                    │
-        │                                 │
-        │ Right Column (30%):             │
-        │ - File structure preview        │
-        │ - Top 30 files/folders          │
-        │ - Directory tree                │
-        └─────────────────────────────────┘
-```
-
-### Code Level: How It Happens
-
-```python
-# ============================================
-# STEP 1: Import libraries
-# ============================================
-import streamlit as st
-import requests
-import os
-from dotenv import load_dotenv
-from groq import Groq
-
-# Load environment variables from .env file
-load_dotenv()
-
-# ============================================
-# STEP 2: Define helper functions
-# ============================================
-
-def parse_repo(url: str) -> tuple[str, str] | None:
-    """Extract owner/repo from URL"""
-    url = url.rstrip("/")
-    parts = url.replace("https://github.com/", "").split("/")
-    if len(parts) >= 2:
-        return parts[0], parts[1]
-    return None
-
-def fetch_readme(owner: str, repo: str) -> str | None:
-    """Get README from GitHub API"""
-    api_url = f"https://api.github.com/repos/{owner}/{repo}/readme"
-    headers = {"Accept": "application/vnd.github.v3.raw"}
-    resp = requests.get(api_url, headers=headers, timeout=15)
-    if resp.status_code == 200:
-        return resp.text
-    return None
-
-def fetch_repo_tree(owner: str, repo: str) -> list[str]:
-    """Get file list from GitHub API"""
-    api_url = f"https://api.github.com/repos/{owner}/{repo}/git/trees/HEAD"
-    resp = requests.get(api_url, timeout=15)
-    if resp.status_code == 200:
-        return [item["path"] for item in resp.json().get("tree", [])]
-    return []
-
-def summarize_repo(readme: str, files: list[str], user_level: str) -> str:
-    """Use Groq AI to generate summary"""
-    client = Groq(api_key=os.environ["GROQ_API_KEY"])
-    
-    file_listing = "\n".join(files[:60])
-    
-    prompt = f"""You are RepoLens...
-    [Detailed instructions]
-    
-    README:
-    {readme[:10000]}
-    
-    Files:
-    {file_listing}
-    """
-    
-    response = client.chat.completions.create(
-        model="llama-3.3-70b-versatile",
-        messages=[{"role": "user", "content": prompt}],
-        temperature=0.3,
-        max_tokens=3000
-    )
-    
-    return response.choices[0].message.content
-
-# ============================================
-# STEP 3: Setup Streamlit UI
-# ============================================
-
-st.set_page_config(page_title="RepoLens", page_icon="🔍", layout="wide")
-st.title("🔍 RepoLens")
-st.subheader("Understand any GitHub repo in minutes")
-
-# Sidebar: Experience level selection
-level = st.sidebar.selectbox(
-    "Your experience level",
-    ["beginner", "intermediate", "advanced"],
-    index=1
-)
-
-# Main input: GitHub URL
-repo_url = st.text_input(
-    "Paste a public GitHub repo URL",
-    placeholder="https://github.com/owner/repo"
-)
-
-# ============================================
-# STEP 4: Main logic
-# ============================================
-
-if repo_url:  # User entered a URL
-    
-    # Parse the URL
-    parsed = parse_repo(repo_url)
-    
-    if not parsed:
-        st.error("Invalid GitHub URL format")
-    else:
-        owner, repo = parsed
-        
-        # Show loading spinner while processing
-        with st.spinner(f"Analyzing **{owner}/{repo}**..."):
-            
-            # Fetch README and file list
-            readme = fetch_readme(owner, repo)
-            files = fetch_repo_tree(owner, repo)
-            
-            if not readme:
-                st.warning("No README found")
-            else:
-                # Create two columns: summary (left) and files (right)
-                col1, col2 = st.columns([2, 1])
-                
-                with col2:
-                    st.markdown("**📂 Top-level files**")
-                    for f in files[:30]:
-                        st.text(f)
-                
-                with col1:
-                    # Check for API key
-                    if "GROQ_API_KEY" not in os.environ:
-                        st.error("API key not configured")
-                    else:
-                        try:
-                            # Generate summary using AI
-                            summary = summarize_repo(readme, files, level)
-                            st.markdown(summary)
-                        except Exception as e:
-                            st.error(f"Error: {e}")
-                            st.markdown("Raw README:")
-                            st.markdown(readme[:3000])
+User Input (URL + Question)
+         │
+         ▼
+┌────────────────────────────────────────────────────────────────┐
+│                         app.py                                  │
+│                   (Orchestrator / UI)                           │
+└──────────┬────────────────────────────────────────────────────┘
+           │
+           │  Phase 0
+           ▼
+┌──────────────────────┐    GitHub API (git/trees, contents)
+│    retriever.py      │◄──────────────────────────────────────┐
+│  RepoRetriever       │                                        │
+│  (ChromaDB indexing) │                                        │
+└──────────┬───────────┘                                        │
+           │ indexed chunks                                      │
+           │  Phase 1                                            │
+           ▼                                                     │
+┌──────────────────────┐                                        │
+│    planner.py        │                                        │
+│  Planner Agent       │◄─── Groq LLM (JSON mode)              │
+│  (Plan + PlanSteps)  │                                        │
+└──────────┬───────────┘                                        │
+           │ Plan object                                         │
+           │  Phase 2                                            │
+           ▼                                                     │
+┌──────────────────────┐    tools.py                            │
+│  Researcher Agent    │◄── list_files()  ──────────────────────┤
+│  (in app.py:         │◄── read_file()   ──────────────────────┤
+│   execute_step())    │◄── search_docs() ──────────────────────┘
+│  + RAG chunks        │◄── retriever.get_context_string()
+└──────────┬───────────┘
+           │ step findings[]
+           │  Phase 3
+           ▼
+┌──────────────────────┐
+│  Synthesizer Agent   │◄─── Groq LLM
+│  (in app.py:         │
+│  synthesize_answer() │
+└──────────┬───────────┘
+           │ draft answer
+           │  Phase 4
+           ▼
+┌──────────────────────┐
+│    reviewer.py       │◄─── Groq LLM (JSON mode)
+│  Reviewer Agent      │
+│  + optional revision │
+└──────────┬───────────┘
+           │ final answer + quality score
+           ▼
+┌──────────────────────────────────────────────────────────────┐
+│   Streamlit UI                                                │
+│   Main: answer + quality badge                               │
+│   Tab 1: Evidence chunks + indexed files                     │
+│   Tab 2: Memory (user profile + question history)            │
+│   Tab 3: Trace (phase timings, tool calls, event log)        │
+│   Tab 4: Details (plan steps, findings, tool calls, review)  │
+└──────────────────────────────────────────────────────────────┘
+           │
+           ▼
+┌──────────────────────┐    ┌──────────────────────┐
+│    memory.py         │    │    tracer.py          │
+│  SQLite persistence  │    │  RunTrace + Timer     │
+└──────────────────────┘    └──────────────────────┘
 ```
 
 ---
 
-## What Results Do You Get?
+## The 5-Phase Pipeline
 
-### The 12-Section Comprehensive Summary
+Every question goes through exactly five phases in sequence. Each phase has a live `st.status` widget showing its progress.
 
-When you run RepoLens, you get a detailed analysis with:
+### Phase 0: Index
 
-#### **1. Project Overview** (3 paragraphs)
-```
-- What the project does
-- Main purpose and goals
-- Who would benefit from it
-- Core functionality explained in simple terms
-```
+**What:** The `RepoRetriever` fetches the repo's full file tree recursively from GitHub, selects which files to index based on a priority ruleset, downloads each selected file's content, splits it into overlapping 800-character chunks, and loads all chunks into a fresh ChromaDB in-memory collection.
 
-Example Output:
-```
-This is a Python web framework that makes it incredibly easy to 
-build interactive web applications without knowing HTML, CSS, or 
-JavaScript. Instead of writing complex frontend code, developers 
-write pure Python scripts that automatically become beautiful web 
-applications. It's perfect for data scientists, analysts, and 
-anyone who wants to quickly build data apps.
-```
+**File selection rules (from retriever.py):**
 
-#### **2. Tech Stack & Dependencies**
-```
-- Programming languages used
-- Frameworks and libraries
-- Databases (if any)
-- External services
-- Each with brief explanation
+```python
+CONFIG_PATTERNS = {
+    "package.json", "pyproject.toml", "setup.py", "setup.cfg",
+    "Cargo.toml", "go.mod", "Gemfile", "pom.xml", "build.gradle",
+    "Makefile", "Dockerfile", "docker-compose.yml",
+    ".env.example", "requirements.txt", "tsconfig.json", ...
+}
+DOC_EXTENSIONS = {".md", ".rst", ".txt", ".adoc"}
+SOURCE_EXTENSIONS = {".py", ".js", ".ts", ".go", ".rs", ".java", ".rb"}
+MAX_DOC_FILES = 10
+MAX_SOURCE_FILES = 5  # entry points only: main, app, index, server, cli, manage
 ```
 
-Example Output:
+README files (any variant) and all config/manifest files are always indexed. Doc files are capped at 10. Source files are capped at 5, and only entry-point names (main, app, index, server, cli, manage) or top-level files qualify.
+
+**Output:** `index_stats` dict with `files_indexed`, `chunks_created`, and `files` list. These stats are recorded in the `RunTrace`.
+
+**Why this phase first:** RAG context is injected into both the Researcher and Synthesizer prompts. Indexing must complete before any LLM calls.
+
+### Phase 1: Plan
+
+**What:** The Planner agent receives the user's question, the repo name, the user level, and the first 2000 characters of the README. It calls the Groq LLM in JSON mode and receives back a structured list of 3-5 investigation steps.
+
+**Planner system prompt excerpt (from planner.py):**
+
 ```
-- Python 3.8+ (core language)
-- Streamlit (web framework)
-- NumPy (numerical computing)
-- Pandas (data manipulation)
-- Altair (data visualization)
-- [more...]
+You are the Planner for RepoLens...
+RULES:
+1. Produce 3-5 steps. Keep it focused — avoid redundant steps.
+2. Each step should be a clear, atomic action with a specific goal.
+3. Order: structure first → read key files → search for specifics → synthesize.
+4. Suggest which tool(s) would be useful for each step.
+5. Always start by understanding the project structure (list_files at root).
+6. Always end with a synthesis step (no tools).
 ```
 
-#### **3. Directory Structure & Components**
-```
-- What each folder does
-- Main organizational pattern
-- Key subdirectories
-- Entry points
+The JSON response is parsed into a `Plan` object containing a list of `PlanStep` dataclasses, each with `id`, `title`, `description`, `suggested_tools`, and a `status` field (PENDING/RUNNING/DONE/SKIPPED).
+
+**Fallback:** If JSON parsing fails, a sensible four-step default plan is used (explore structure, read docs, investigate source, synthesize).
+
+### Phase 2: Research
+
+**What:** The Researcher agent (implemented as `execute_step()` in `app.py`) executes each `PlanStep` in order. For each step:
+
+1. RAG context is retrieved from ChromaDB for the combined question + step title + step description query
+2. Previous step findings are appended as context
+3. Memory context (user level, explanation style, past questions about this repo) is injected
+4. The LLM is called with the three tool definitions if the step has `suggested_tools`
+5. If the model returns tool calls, the application dispatches them to the real GitHub API and feeds results back as `role: tool` messages
+6. This loop runs up to 5 iterations per step until the model produces a text response (no more tool calls)
+
+**Tool dispatch loop (from app.py):**
+
+```python
+for _ in range(5):
+    response = client.chat.completions.create(**call_kwargs)
+    msg = response.choices[0].message
+
+    if not msg.tool_calls:
+        return msg.content, tool_calls_log  # step complete
+
+    messages.append(msg)
+    for tool_call in msg.tool_calls:
+        fn_name = tool_call.function.name
+        fn_args = json.loads(tool_call.function.arguments)
+        fn = TOOL_MAP.get(fn_name)
+        result = fn(**fn_args) if fn else f"Unknown tool: {fn_name}"
+        tool_calls_log.append({"step": step.id, "tool": fn_name, "args": fn_args, ...})
+        messages.append({"role": "tool", "tool_call_id": tool_call.id, "content": result})
 ```
 
-#### **4. Key Files to Read First** (8 files)
-```
-For each file:
-- Filename
-- Why read this file (2-3 sentences)
-- What it contains
-- When you need it
+All tool calls are logged for display in the Details tab. The Researcher is instructed to cite file paths for every claim using the format `(source: filename.ext)` and to never state facts it cannot back with file evidence.
+
+### Phase 3: Synthesize
+
+**What:** The Synthesizer agent (`synthesize_answer()`) receives the complete list of step findings, the README, and the top 5 RAG evidence chunks. It writes the final user-facing answer in markdown.
+
+The Synthesizer's style instruction is driven by the user's explanation style preference:
+
+```python
+style_instruction = {
+    "concise": "Keep the answer brief and to the point. Use bullet points.",
+    "balanced": "Provide a well-structured answer with moderate detail.",
+    "detailed": "Provide a comprehensive, in-depth answer with examples and explanations.",
+}.get(style, "Provide a well-structured answer.")
 ```
 
-Example:
+The user level (beginner/intermediate/advanced) is also passed: beginners get jargon explained, advanced users get architecture and internals focus.
+
+**Key constraint:** The Synthesizer system prompt contains `NEVER answer without evidence. Every factual claim MUST cite a file: (source: filename)`. If evidence is missing for a topic, the answer must say "Not found in the codebase" rather than guessing.
+
+### Phase 4: Review and Revise
+
+**What:** The Reviewer agent (`review_answer()` in `reviewer.py`) quality-checks the Synthesizer's output. It receives the original question, the draft answer, the list of indexed files, and the evidence chunks. It returns a JSON object with:
+
+- `verdict`: `"pass"` or `"needs_revision"`
+- `issues`: list of flagged problems (type, description, location, suggestion)
+- `quality_score`: integer 1-10
+- `summary`: one-sentence overall assessment
+
+**What the Reviewer checks:**
+
+| Issue Type | Flag | Example |
+|---|---|---|
+| Unsupported Claims | `UNSUPPORTED` | Factual statement with no file citation |
+| Missing Citations | `NEEDS CITATION` | Key claim without a source file |
+| Vague Instructions | `VAGUE` | "Install dependencies" without the actual command |
+| Bad File References | `BAD REF` | Path that does not appear in the indexed files list |
+| Hallucination Risk | `UNVERIFIED` | Function name not confirmed by any chunk |
+
+**Scoring thresholds:**
+- 9-10: Excellent — no issues, well-cited, complete
+- 7-8: Good — minor issues only; verdict is "pass"
+- 5-6: Acceptable — vague sections or unsupported claims; verdict depends
+- 1-4: Poor — verdict is "needs_revision"
+
+**Automatic revision:** If `verdict == "needs_revision"` and `quality_score < 6`, the `revise_answer()` function is called. It receives the original answer, the reviewer issues list, the question, and the evidence chunks, and rewrites the answer to fix the flagged problems. The revision is shown to the user instead of the original.
+
+The quality score is displayed as a badge above the answer (green for 8+, yellow for 5-7, red below 5) and is saved to question history.
+
+---
+
+## Module-by-Module Breakdown
+
+### app.py — Orchestrator and UI
+
+The central file. Owns the Streamlit page, the full pipeline execution loop, the `execute_step()` Researcher function, and the `synthesize_answer()` Synthesizer function. Imports from all other modules. Also contains the `parse_repo()` and `fetch_readme()` / `fetch_repo_tree()` helpers.
+
+Key responsibilities:
+- Initialize `st.session_state` with `SessionState`, `RunTrace`, `RepoRetriever`, and review result
+- Read sidebar preferences and update user profile via `memory.py`
+- Execute phases 0-4 in sequence with `st.status` wrappers
+- Dispatch tool calls returned by the LLM in the research loop
+- Display the final answer, quality badge, and all four tabs
+
+### tools.py — GitHub Tool Implementations
+
+Defines the three tools the Researcher can call, both as Python functions and as JSON Schema tool definitions for the Groq function-calling API.
+
+**`list_files(path: str) -> str`**
+
+Calls `GET /repos/{owner}/{repo}/contents/{path}`. Returns a formatted directory listing with `📁` / `📄` icons sorted directories-first. Used to explore the project structure.
+
+**`read_file(path: str) -> str`**
+
+Calls `GET /repos/{owner}/{repo}/contents/{path}`. Base64-decodes the response and returns up to 8,000 characters. Used to inspect source files, configs, and documentation.
+
+**`search_docs(query: str) -> str`**
+
+Calls the GitHub code search API: `GET /search/code?q={query}+repo:{owner}/{repo}`. Returns up to 10 matching file paths with a 120-character text fragment each. Used to find where a concept or function is defined.
+
+The global `_owner` and `_repo` variables are set via `set_repo(owner, repo)` at the start of each analysis session. `TOOL_DEFINITIONS` is the list of JSON Schema objects passed to the Groq API. `TOOL_MAP` maps function name strings to callables for dispatch.
+
+### planner.py — Planner Agent
+
+Single public function: `create_plan(question, repo_name, user_level, readme_preview) -> Plan`.
+
+Calls the Groq LLM in JSON mode with `temperature=0.2` (low for deterministic plans) and `max_tokens=800`. Parses the JSON into `Plan` and `PlanStep` dataclass instances. The fallback default plan handles JSON parsing failures gracefully.
+
+### retriever.py — RAG Module
+
+`RepoRetriever` class manages a per-session ChromaDB collection.
+
+**`index(status_callback) -> dict`**: Fetches the recursive file tree, selects files using `_select_files_to_index()`, downloads each file via `_fetch_file_content()`, splits into chunks with `_chunk_text(chunk_size=800, overlap=200)`, and batch-adds to ChromaDB in groups of 100 (ChromaDB's batch limit). Returns stats.
+
+**`query(question, n_results) -> list[dict]`**: Calls `collection.query(query_texts=[question])`. Returns list of dicts with `content`, `source`, `chunk_index`, and `distance`.
+
+**`get_context_string(question, n_results) -> str`**: Formats query results into a labeled string for prompt injection:
+
 ```
-**app.py** — Entry point of the application. Start here to 
-understand how the app starts and runs. This is where Streamlit 
-initializes everything.
+[Chunk 1] Source: README.md (chunk #0)
+<content>
 
-**setup.py** — Package configuration and dependencies. Contains 
-all external libraries needed. Read this to understand what 
-libraries are required.
+---
 
+[Chunk 2] Source: setup.py (chunk #1)
+<content>
+```
+
+### reviewer.py — Reviewer Agent
+
+Two public functions:
+
+**`review_answer(...) -> dict`**: Sends the answer, indexed file list, and evidence chunks to the Groq LLM in JSON mode with `temperature=0.2`. Returns the verdict, issues list, quality score, and summary.
+
+**`revise_answer(...) -> str`**: Called only when `verdict == "needs_revision"` and score < 6. Formats the reviewer issues as a numbered list and instructs the LLM to rewrite the answer fixing each issue while keeping the same structure.
+
+### memory.py — SQLite Persistence
+
+All database operations go through `_get_connection()`, which creates the two tables if they do not exist and ensures the single `user_profile` row exists (using `INSERT OR IGNORE`). WAL journal mode is enabled for concurrent read performance.
+
+**`get_profile() -> dict`**: Reads the single user_profile row.
+
+**`update_profile(skill_level, explanation_style, last_repo)`**: Partial updates — only provided fields are changed.
+
+**`add_question(repo, question, user_level, answer_preview, quality_score)`**: Inserts a history row and immediately prunes to 20 most recent.
+
+**`get_memory_context(repo, user_level) -> str`**: Builds a formatted string combining user level, explanation style preference, previously explored repo, and up to 3 past questions about the current repo. This string is injected into every Researcher prompt to personalize the investigation.
+
+### state.py — Data Structures
+
+Pure dataclasses with no external dependencies.
+
+**`StepStatus`**: Enum with PENDING, RUNNING, DONE, SKIPPED.
+
+**`PlanStep`**: `id`, `title`, `description`, `suggested_tools: list[str]`, `status: StepStatus`, `result_summary: str`.
+
+**`Plan`**: `question`, `repo`, `user_level`, `steps: list[PlanStep]`. Properties: `is_complete`, `current_step`, `progress` (done/total tuple).
+
+**`SessionState`**: Top-level container holding `owner`, `repo`, `user_level`, `readme`, `plan`, `tool_calls_log`, `final_answer`.
+
+### tracer.py — Observability
+
+**`TraceEvent`**: Dataclass with `phase`, `step`, `action`, `duration_ms`, `detail`, `error`, `timestamp`.
+
+**`RunTrace`**: One per question. Collects `TraceEvent` instances via `add_event()`. Aggregates phase times in `summary()`. Produces a human-readable event log via `event_log()`. Also tracks `files_indexed`, `chunks_retrieved`, `tool_calls_count`, `final_answer_length`, `quality_score`, `review_verdict`.
+
+**`Timer`**: Context manager that records elapsed milliseconds. Used with `with Timer() as t:` blocks wrapping each phase.
+
+### evaluator.py — Benchmark Evaluation
+
+Not run during normal operation. Provides a standalone eval suite for measuring system quality.
+
+**`BENCHMARK_QUESTIONS`**: 10 pre-defined questions designed to be answerable against any repo (e.g. "What is this project?", "How do I run it?", "Where is the entry point?", "What tests exist?").
+
+**`score_answer(...) -> dict`**: Scores one answer on 5 binary criteria (0 or 1 each):
+- `right_file`: Referenced at least one relevant file
+- `citation_present`: Cited specific file paths as evidence
+- `answer_complete`: Substantive, not a one-liner
+- `no_hallucination`: No implausible file paths or technical details
+- `clear_for_level`: Language appropriate for stated user level
+
+Maximum score per question: 5. Maximum across the full suite: 50.
+
+**`run_eval_suite(answer_fn, repo_name, user_level, indexed_files) -> dict`**: Calls `answer_fn(question)` for each benchmark question, scores the result, and returns per-question scores plus aggregate stats including percentage.
+
+---
+
+## Multi-Agent Design
+
+RepoLens uses four specialized agents, each with a distinct role, system prompt, and output format. They are not running concurrently — they execute in pipeline order, each consuming the output of the previous.
+
+```
+┌──────────────┐     ┌──────────────┐     ┌──────────────┐     ┌──────────────┐
+│   PLANNER    │────▶│  RESEARCHER  │────▶│ SYNTHESIZER  │────▶│   REVIEWER   │
+│              │     │              │     │              │     │              │
+│ Input:       │     │ Input:       │     │ Input:       │     │ Input:       │
+│ - question   │     │ - plan step  │     │ - all        │     │ - question   │
+│ - user level │     │ - RAG chunks │     │   findings   │     │ - answer     │
+│ - README     │     │ - memory ctx │     │ - RAG chunks │     │ - indexed    │
+│              │     │ - prev steps │     │ - user level │     │   files      │
+│ Output:      │     │              │     │ - style      │     │ - evidence   │
+│ Plan (JSON)  │     │ Output:      │     │              │     │              │
+│              │     │ Findings     │     │ Output:      │     │ Output:      │
+│ LLM mode:    │     │ (markdown    │     │ Final answer │     │ Verdict,     │
+│ JSON         │     │  + citations)│     │ (markdown)   │     │ Score (JSON) │
+│ temp=0.2     │     │ temp=0.3     │     │ temp=0.3     │     │ temp=0.2     │
+└──────────────┘     └──────────────┘     └──────────────┘     └──────────────┘
+```
+
+**Why separate agents instead of one big prompt?**
+
+- The Planner needs to reason about *what* to investigate, which is a different cognitive task from actually investigating
+- The Researcher needs tool access and iterative tool loops — unsuitable for a single-shot prompt
+- The Synthesizer can work at a higher level, combining already-gathered evidence
+- The Reviewer benefits from having no stake in the answer — it reads the answer cold and applies strict criteria
+- Each agent uses the minimum context needed, keeping token usage efficient
+
+**Agent separation in the codebase:**
+
+The Planner lives entirely in `planner.py`. The Researcher and Synthesizer are functions in `app.py` (`execute_step()` and `synthesize_answer()`). The Reviewer lives in `reviewer.py`. This reflects their different purposes: the Planner and Reviewer are stateless utilities; the Researcher and Synthesizer are tightly coupled to the orchestration loop in `app.py`.
+
+---
+
+## RAG: Retrieval-Augmented Generation
+
+RAG solves the context window problem. A large repository may have hundreds of files and thousands of lines. You cannot fit all of that into a single LLM prompt. Instead, RepoLens indexes the most important files, then retrieves only the most relevant passages for each specific question.
+
+### Chunking Strategy
+
+```python
+def _chunk_text(text: str, chunk_size: int = 800, overlap: int = 200) -> list[str]:
+    chunks = []
+    start = 0
+    while start < len(text):
+        end = start + chunk_size
+        chunks.append(text[start:end])
+        start += chunk_size - overlap  # 600 characters advance per step
+    return [c.strip() for c in chunks if c.strip()]
+```
+
+The 200-character overlap ensures that sentences and code blocks that span a chunk boundary appear in both adjacent chunks. This prevents answers from missing information that straddles a cut point.
+
+### Embedding and Similarity
+
+ChromaDB uses its default embedding model (sentence-transformers under the hood) to vectorize each chunk when it is added, and to vectorize the query at retrieval time. Cosine similarity is used (`hnsw:space: cosine`), which measures the angle between vectors rather than their magnitude — better suited for semantic similarity than Euclidean distance.
+
+### Retrieval Injection Points
+
+RAG context is injected at two points:
+
+1. **Researcher prompts** — `retriever.get_context_string(question + step_title + step_description, n_results=3)` — 3 chunks per step, combined with step-specific keywords for better targeting
+2. **Synthesizer prompts** — `retriever.get_context_string(question, n_results=5)` — 5 broader chunks for the final answer
+
+The formatted string labels each chunk with its source file and chunk index:
+
+```
+[Chunk 1] Source: requirements.txt (chunk #0)
+streamlit>=1.32
+groq>=0.5
+chromadb>=0.4
+...
+
+---
+
+[Chunk 2] Source: README.md (chunk #2)
+## Installation
+pip install -r requirements.txt
 ...
 ```
 
-#### **5. Setup & Installation Instructions**
-```
-- Prerequisites (what you need to install first)
-- Step-by-step installation commands
-- Configuration steps
-- How to verify it worked
-```
+### Why Not Index Everything?
 
-#### **6. How to Run & Use**
-```
-- How to start the application
-- What command to run
-- What to expect when it starts
-- How to use the main features
-- Example workflows
-```
-
-#### **7. Architecture Deep Dive**
-```
-- High-level architecture explanation
-- Main components and modules
-- How they interact
-- Data flow through system
-- Design patterns used
-```
-
-#### **8. Development Workflow**
-```
-- How to set up development environment
-- Running tests
-- Code standards
-- Contribution process
-- Building and deployment
-```
-
-#### **9. Code Quality & Testing**
-```
-- Testing framework used
-- How to run tests
-- Code coverage information
-- Quality standards
-- Performance considerations
-```
-
-#### **10. Good First Contributions** (4-5 ideas)
-```
-For each idea:
-- What to implement
-- Why it's helpful
-- Difficulty level
-- Where to start
-```
-
-Example:
-```
-**Add unit tests for validation module** (Difficulty: Easy)
-This project needs more test coverage. Start with the validation.py 
-file and write tests for each function. Great way to understand the 
-code while contributing!
-
-**Improve error messages** (Difficulty: Easy)
-Make error messages more user-friendly...
-```
-
-#### **11. Common Gotchas & Troubleshooting**
-```
-- Common mistakes beginners make
-- Known issues
-- How to debug
-- Error messages and solutions
-```
-
-#### **12. Learning Resources & Next Steps**
-```
-- Important documentation
-- Example projects
-- Community forums
-- Related projects
-```
+Two reasons. First, GitHub API rate limits. Fetching every file in a large repo would exhaust the 60 request/hour unauthenticated limit. Second, noise reduction. Source files outside the entry points (utility modules, test fixtures, generated code) add noise to retrieval results without improving answer quality. The file selection heuristic focuses on the files that are most likely to answer onboarding questions: documentation, package manifests, and entry points.
 
 ---
 
-## Where Is It Used?
+## Memory System
 
-### Use Case 1: **Junior Developer Onboarding**
-```
-Scenario:
-New developer joins a company using a large codebase
+RepoLens remembers the user across sessions using SQLite. The database file is `repolens_memory.db` in the project directory.
 
-Without RepoLens:
-- 2 weeks to understand the code
-- Many questions for teammates
-- Reduced productivity initially
+### Schema
 
-With RepoLens:
-- 30 minutes to understand structure
-- Knows where to look for things
-- Productive from day 1 ✅
-```
+```sql
+CREATE TABLE user_profile (
+    id INTEGER PRIMARY KEY CHECK (id = 1),  -- enforces single row
+    skill_level TEXT DEFAULT 'intermediate',
+    explanation_style TEXT DEFAULT 'balanced',
+    last_repo TEXT DEFAULT '',
+    updated_at TEXT DEFAULT ''
+);
 
-### Use Case 2: **Open Source Contribution**
-```
-Scenario:
-You want to contribute to open-source projects
-
-Without RepoLens:
-- Takes 3-4 hours to understand a new project
-- Only contribute to projects you already know
-- Limited contributions
-
-With RepoLens:
-- Takes 10 minutes to understand
-- Can contribute to many projects quickly
-- 10x more productive! 🚀
+CREATE TABLE question_history (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    repo TEXT NOT NULL,
+    question TEXT NOT NULL,
+    user_level TEXT NOT NULL,
+    answer_preview TEXT DEFAULT '',   -- first 500 chars of answer
+    quality_score INTEGER DEFAULT 0,
+    asked_at TEXT NOT NULL
+);
 ```
 
-### Use Case 3: **Code Review & Audits**
+### How Memory Affects Answers
+
+At the start of each Researcher step, `get_memory_context(repo, user_level)` builds a context string:
+
 ```
-Scenario:
-Need to review code from another team
-
-Without RepoLens:
-- Spend hours understanding structure first
-- Limited time for actual review
-- Might miss important things
-
-With RepoLens:
-- Understand architecture in 10 minutes
-- More time for actual review
-- Better quality reviews ✅
+User skill level: beginner
+Explanation style preference: detailed
+Previously explored: tensorflow/tensorflow
+Previous questions about this repo:
+  - "What is this project?" (level: beginner, score: 9)
+  - "How do I run it?" (level: beginner, score: 8)
 ```
 
-### Use Case 4: **Learning & Development**
-```
-Scenario:
-Want to learn how experienced developers build projects
+This is injected into the Researcher's user prompt. The effect is that the LLM knows the user is a beginner, prefers detailed explanations, and has already asked basic questions — so it can calibrate the depth and vocabulary of its findings accordingly.
 
-Without RepoLens:
-- Browse GitHub randomly
-- Hard to understand context
-- Slow learning process
+### Memory in the UI
 
-With RepoLens:
-- Quickly understand architecture of great projects
-- Learn best practices
-- Faster skill development ✅
-```
-
-### Use Case 5: **Technical Due Diligence**
-```
-Scenario:
-Evaluating a vendor's software or open-source library
-
-Without RepoLens:
-- Manual review takes days
-- Expensive consultant needed
-- Slow decision making
-
-With RepoLens:
-- Quick assessment in minutes
-- Understand architecture immediately
-- Make faster decisions ✅
-```
+The sidebar shows the last explored repo name from the profile. The Memory tab shows the full profile as JSON and the 10 most recent questions as expandable cards with level, quality score, timestamp, and answer preview.
 
 ---
 
-## Key Implementation Details
+## Tracing and Observability
 
-### 1. **Error Handling**
+Every run produces a `RunTrace` that records the full execution history.
 
-RepoLens gracefully handles errors:
+### What Is Tracked
 
 ```python
-# Check if URL is valid
-if not parsed:
-    st.error("Invalid URL")
-
-# Check if README exists
-if not readme:
-    st.warning("No README found - showing file structure instead")
-
-# Check if API key exists
-if "GROQ_API_KEY" not in os.environ:
-    st.error("API key not configured")
-
-# Handle API failures
-try:
-    summary = summarize_repo(...)
-except Exception as e:
-    st.error(f"Error: {e}")
-    st.markdown("Showing raw README instead")
+@dataclass
+class RunTrace:
+    repo: str
+    question: str
+    user_level: str
+    started_at: str
+    events: list[TraceEvent]       # all phase events
+    total_duration_ms: float
+    quality_score: int             # from Reviewer
+    review_verdict: str            # "pass" or "needs_revision"
+    chunks_retrieved: int          # RAG chunks used
+    files_indexed: int             # files in ChromaDB
+    tool_calls_count: int          # total tool calls across all steps
+    final_answer_length: int       # character count
 ```
 
-### 2. **Performance Optimization**
+Each `TraceEvent` records the phase name, step number, action description, duration in milliseconds, optional detail, and optional error.
+
+### What the Trace Tab Shows
+
+Three metrics displayed as columns:
+- Total time (sum of all phase durations in seconds)
+- Tool calls (total across all research steps)
+- Quality score (from Reviewer, out of 10)
+
+Phase timing breakdown: each unique phase name (index, plan, research, synthesis, review, revision) with its cumulative duration.
+
+Event log: one line per event, showing phase, step number if applicable, action, and duration. Errors are highlighted.
+
+### How Timing Works
 
 ```python
-# Limit README size to save tokens
-readme[:8000]  # Only first 8000 characters
-
-# Limit files to avoid overwhelming AI
-files[:60]  # Only first 60 files
-
-# Lower temperature for consistency
-temperature=0.3  # More precise, less creative
-
-# Timeout protection
-timeout=15  # Max 15 seconds per API call
+with Timer() as t:
+    plan = create_plan(...)
+trace.add_event("plan", f"Created {len(plan.steps)}-step plan", t.elapsed_ms)
 ```
 
-### 3. **Environment Management**
+The `Timer` context manager records wall-clock time in milliseconds. It is wrapped around each phase call and the elapsed time is passed directly to `add_event()`.
 
-```python
-# Load from .env file
-from dotenv import load_dotenv
-load_dotenv()
+---
 
-# Get API key safely
-api_key = os.environ["GROQ_API_KEY"]
+## Evaluation Framework
 
-# Never hardcode secrets!
+`evaluator.py` provides a standalone benchmark for measuring overall system quality. It is not invoked during normal usage — it is run separately to evaluate how well the full pipeline performs.
+
+### The 10 Benchmark Questions
+
+| ID | Question | Key Files Expected |
+|---|---|---|
+| 1 | What is this project? | README.md |
+| 2 | How do I run it? | README.md, Makefile, Dockerfile, package.json |
+| 3 | What files define config? | *.config.*, *.json, *.toml, *.yaml |
+| 4 | Where is the entry point? | main.*, app.*, index.*, server.* |
+| 5 | What should a beginner read first? | README.md, CONTRIBUTING.md, docs/* |
+| 6 | What is the architecture? | (any file-based evidence) |
+| 7 | What dependencies does this project use? | requirements.txt, package.json, go.mod |
+| 8 | How do I contribute? | CONTRIBUTING.md, .github/* |
+| 9 | What tests exist and how do I run them? | test*, pytest.ini, jest.config.* |
+| 10 | What would be a good first contribution? | CONTRIBUTING.md, README.md |
+
+### The 5 Scoring Criteria
+
+Each criterion is scored 0 or 1 per question. Maximum: 50 points across the full suite.
+
+| Criterion | What It Checks |
+|---|---|
+| `right_file` | Answer references at least one relevant file |
+| `citation_present` | Specific file paths are cited as evidence |
+| `answer_complete` | Substantive answer, more than 2 sentences |
+| `no_hallucination` | All technical details are plausible and consistent |
+| `clear_for_level` | Language is appropriate for the stated user level |
+
+`run_eval_suite()` takes an `answer_fn` callable so it can be plugged into any version of the pipeline, making it useful for regression testing when the prompts or architecture change.
+
+---
+
+## The User Interface
+
+### Sidebar
+
+The sidebar is always visible. It contains:
+- Repo URL text input
+- Experience level selector (beginner / intermediate / advanced) — pre-populated from SQLite memory
+- Explanation style selector (concise / balanced / detailed) — pre-populated from SQLite memory
+- Five preset question buttons (Summarize architecture, Onboarding guide, Setup steps, What to read first, How to contribute)
+- Current plan steps (shown after planning completes)
+- Last explored repo name (from memory)
+
+Any change to level or style immediately calls `update_profile()` to persist it.
+
+### Main Panel
+
+Before a URL is entered: a landing page with three columns describing the Plan, Research, and Review phases.
+
+After a question is submitted:
+1. Four `st.status` blocks show live progress for each phase (Index, Plan, Research, Synthesize, Review, and optionally Revision)
+2. A quality badge displays the Reviewer's score and summary
+3. The final answer renders as formatted markdown
+4. Four tabs appear below the answer
+
+### Tab 1: Evidence
+
+Shows the raw RAG chunks retrieved for the question, labeled by source file and chunk index. Also lists all indexed files with a count of total files and chunks. This makes the system's sources fully transparent.
+
+### Tab 2: Memory
+
+Shows the full `user_profile` as JSON and the 10 most recent questions as expandable cards. Each card shows the repo, user level, quality score, timestamp, and first 500 characters of the answer.
+
+### Tab 3: Trace
+
+Shows the three key metrics (total time, tool calls, quality score), per-phase timing breakdown, and the full event log. Any errors from any phase are shown in red at the bottom.
+
+### Tab 4: Details
+
+Shows the full investigation plan with step status icons, the per-step findings in expandable sections, the complete tool call log with arguments and result previews, and the full Reviewer JSON output including the issues list.
+
+---
+
+## Data Flow: End to End
+
+This section traces a single question through the entire system.
+
+**Input:** `https://github.com/pallets/flask` + question: `"How do I run it?"` + level: `beginner`
+
 ```
+1. app.py: parse_repo() → owner="pallets", repo="flask"
+   tools.set_repo("pallets", "flask")
+   memory.update_profile(last_repo="pallets/flask")
+   fetch_readme() → raw README text
+   fetch_repo_tree() → list of all file paths
 
-### 4. **API Caching**
+2. Phase 0 — Index:
+   retriever = RepoRetriever("pallets", "flask")
+   retriever.index():
+     _fetch_tree_recursive() → 150+ file paths
+     _select_files_to_index() → selects:
+       README.rst, CHANGES.rst, pyproject.toml, setup.cfg,
+       Makefile, docs/installation.rst, docs/quickstart.rst,
+       src/flask/app.py (entry point), src/flask/__main__.py
+     For each file: _fetch_file_content() → base64 decode
+     _chunk_text(content, 800, 200) → chunks
+     collection.add(documents, metadatas, ids)
+   → 9 files indexed, ~40 chunks created
 
-```python
-# Streamlit caches function results
-@st.cache_data
-def fetch_readme(owner, repo):
-    # If called again with same args,
-    # returns cached result instantly!
-    pass
+3. Phase 1 — Plan:
+   evidence_chunks = retriever.get_context_string("How do I run it?", n_results=5)
+   planner.create_plan(question="How do I run it?", repo_name="pallets/flask",
+                       user_level="beginner", readme_preview=readme[:2000])
+   → Groq LLM returns JSON:
+   {
+     "steps": [
+       {"title": "Explore project structure", "suggested_tools": ["list_files"]},
+       {"title": "Read README for setup instructions", "suggested_tools": ["read_file"]},
+       {"title": "Check pyproject.toml for install commands", "suggested_tools": ["read_file"]},
+       {"title": "Synthesize run instructions", "suggested_tools": []}
+     ]
+   }
+   → Plan with 4 PlanSteps
+
+4. Phase 2 — Research (4 steps):
+   Step 1: execute_step()
+     RAG: get_context_string("How do I run it? Explore project structure list_files", n_results=3)
+     memory_ctx: "User skill level: beginner\nExplanation style: balanced"
+     LLM call with tools → model calls list_files(path="")
+     tools.list_files("") → "📁 docs\n📁 src\n📄 README.rst\n📄 pyproject.toml..."
+     model receives tool result → produces findings text with citations
+
+   Step 2: execute_step()
+     RAG: get_context_string("How do I run it? Read README for setup instructions read_file", n_results=3)
+     prev findings from step 1 appended
+     LLM call with tools → model calls read_file(path="README.rst")
+     tools.read_file("README.rst") → first 8000 chars of README
+     model produces findings: "Flask can be run with flask run (source: README.rst)"
+
+   Step 3: execute_step()
+     LLM calls read_file(path="pyproject.toml")
+     → "dependencies = ['werkzeug', 'jinja2', ...]"
+     findings: "Install with pip install flask (source: pyproject.toml)"
+
+   Step 4: synthesis step (no tools)
+     LLM summarizes all findings into structured bullet points
+
+5. Phase 3 — Synthesize:
+   synthesize_answer(plan, findings=[...4 items...], readme, evidence_chunks, style="balanced")
+   → Final answer in markdown:
+   "## Running Flask
+   Install: `pip install flask` (source: pyproject.toml)
+   Create app.py: ...
+   Run: `flask run` (source: README.rst)
+   ..."
+
+6. Phase 4 — Review:
+   reviewer.review_answer(question, final_answer, indexed_files, evidence_chunks, user_level="beginner")
+   → {verdict: "pass", quality_score: 9, issues: [], summary: "Well-cited setup instructions"}
+   score >= 8 → green badge, no revision needed
+
+7. Finalize:
+   trace.finalize()
+   memory.add_question(repo="pallets/flask", question="How do I run it?",
+                       user_level="beginner", answer_preview=..., quality_score=9)
+
+8. Display:
+   Green badge: "Quality Score: 9/10 — Well-cited setup instructions"
+   st.markdown(final_answer)
+   Tabs: Evidence (9 indexed files, 40 chunks, 5 retrieved)
+         Memory (profile + history)
+         Trace (total ~18s, 3 tool calls)
+         Details (plan, findings, tool calls, review JSON)
 ```
 
 ---
 
-## Conditions & Limitations
+## Conditions and Limitations
 
-### ✅ Works When:
+### Works When:
+- The repository is public (no authentication required)
+- The repo has at least a README file
+- `GROQ_API_KEY` is set in the environment (via `.env` or shell)
+- GitHub API rate limit has not been exhausted (60 requests/hour unauthenticated)
 
-1. **Public Repository** — Repo is publicly available
-2. **Has README** — README.md file exists
-3. **Valid URL** — Correct GitHub URL format
-4. **APIs Available** — GitHub and Groq APIs are accessible
-5. **API Key Set** — GROQ_API_KEY is configured
+### Limitations:
+- **Private repos** are not supported. The GitHub API returns 404 for private repos without authentication. Adding GitHub token support would require an additional env variable and passing a Bearer token header.
+- **Code search rate limit**: `search_docs` uses the GitHub code search API which is limited to 10 requests/minute unauthenticated. Heavy use of the `search_docs` tool in a single session will trigger rate limit errors, which the Researcher handles gracefully by continuing with remaining tools and RAG context.
+- **Very large files**: `read_file()` truncates files at 8,000 characters. Large source files will have their tail content missing in tool outputs, though their chunks may still be in the RAG index.
+- **No persistent vector index**: ChromaDB is instantiated in-memory and rebuilt fresh for every question. Repeated questions about the same repo re-index from scratch. This is intentional for simplicity but adds 5-15 seconds to each run depending on repo size.
+- **Context window**: Researcher prompts can grow large with many tool iterations plus RAG chunks. The 5-iteration limit per step and the 1,500 token response cap keep this bounded.
+- **Evaluation suite** (`evaluator.py`) is not integrated into the UI — it must be run as a standalone script, and it will make many LLM calls (10 questions × multiple agents each).
 
-### ❌ Doesn't Work When:
-
-1. **Private Repository** — Repo requires authentication (yet!)
-2. **No README** — No README.md file
-3. **Invalid URL** — Wrong format or misspelled
-4. **Rate Limited** — Too many requests too quickly
-5. **No API Key** — GROQ_API_KEY not set
-
-### 🔧 Future Improvements:
-
-- ✨ Support for private repos (with GitHub token)
-- ✨ Export to PDF/Word
-- ✨ Code snippet extraction
-- ✨ Multi-repo analysis
-- ✨ Caching database
-- ✨ GitLab support
-
----
-
-## Enhancements Made
-
-### What Was Enhanced:
-
-**Original Version:**
+### Configuration Required:
 ```
-Output: 5 sections
-- What it does (1 paragraph)
-- Key files (5 files)
-- How to run (brief)
-- Architecture (brief)
-- Good contributions (2-3)
-Total: ~1000 words
+# .env file in project root
+GROQ_API_KEY=your_groq_api_key_here
 ```
 
-**Enhanced Version (Current):**
-```
-Output: 12 sections
-- Project overview (3 paragraphs)
-- Tech stack (detailed)
-- Directory structure
-- Key files (8 files, detailed)
-- Setup instructions (step-by-step)
-- How to run & use (comprehensive)
-- Architecture deep dive
-- Development workflow
-- Code quality & testing
-- First contributions (4-5 detailed)
-- Troubleshooting & gotchas
-- Learning resources & next steps
-Total: 2000-3000 words! 🚀
-```
-
-### Why This Matters:
-
-```
-Old Summary: "This is a web framework for building apps"
-❌ Too vague! Still need to explore more
-
-Enhanced Summary: "This is a Python web framework...
-[Comprehensive explanation of tech stack, architecture,
-setup, files, development workflow, troubleshooting,
-and learning path]"
-✅ Complete understanding! Ready to use!
-```
-
----
-
-## Summary
-
-### What You Now Know:
-
-✅ What RepoLens does (summarizes GitHub repos)  
-✅ Why it's useful (saves hours of learning)  
-✅ What technology it uses (Python, Streamlit, Groq AI)  
-✅ How it works (step-by-step process)  
-✅ What output you get (12-section comprehensive summary)  
-✅ Where it's used (onboarding, contributions, reviews)  
-✅ How it's implemented (code, APIs, error handling)  
-✅ Its limitations (public repos, API keys)  
-✅ Recent enhancements (more detailed output)  
-
-### Key Achievements:
-
-✅ AI-powered analysis (Llama 3.3-70b)  
-✅ Free to use (no paid APIs)  
-✅ Fast (2-5 seconds per summary)  
-✅ Comprehensive (2000+ word summaries)  
-✅ User-friendly (simple web interface)  
-✅ Production-ready (error handling, validation)  
-✅ Well-documented (you're reading it!)  
-
----
-
-**Congratulations! You now understand RepoLens completely!** 🎉
-
-You can use this knowledge to:
-- Use RepoLens effectively
-- Understand how it works
-- Contribute improvements
-- Build similar projects
-- Explain it to others
-
-Start exploring repositories today! 🚀
+Groq API keys are free at console.groq.com. No credit card is required for the free tier.

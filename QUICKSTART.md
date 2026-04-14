@@ -1,178 +1,117 @@
-# Quick Start Guide ⚡
+# Quick Start Guide
 
 Get RepoLens running in 5 minutes!
 
 ## TL;DR (For Experienced Developers)
 
 ```bash
-# Clone & setup
-git clone https://github.com/akhil13algo/RepoLens.git
+git clone https://github.com/akhilpdas/RepoLens.git
 cd RepoLens
 python3 -m venv venv && source venv/bin/activate
-
-# Install & configure
 pip install -r requirements.txt
 echo "GROQ_API_KEY=gsk_your_key_here" > .env
-
-# Get Groq key: https://console.groq.com (free, 2 min signup)
-
-# Run
 streamlit run app.py
-
-# Open browser: http://localhost:8501
+# Open http://localhost:8501
 ```
+
+Get a free Groq key: https://console.groq.com/keys (2 min signup)
 
 ---
 
-## Step-by-Step (For Everyone)
+## Step-by-Step
 
-### 1. Prerequisites ✅
+### 1. Prerequisites
+- Python 3.9+
+- Free Groq account
 
-- Python 3.10+ installed
-- Free Groq account (2 minutes to setup)
-
-### 2. Clone Repository (1 min)
-
+### 2. Clone
 ```bash
-git clone https://github.com/akhil13algo/RepoLens.git
+git clone https://github.com/akhilpdas/RepoLens.git
 cd RepoLens
 ```
 
-### 3. Setup Virtual Environment (30 sec)
-
+### 3. Virtual Environment
 ```bash
-# Create venv
 python3 -m venv venv
-
-# Activate it
-source venv/bin/activate  # macOS/Linux
-# OR
-venv\Scripts\activate     # Windows
+source venv/bin/activate    # macOS/Linux
+# venv\Scripts\activate     # Windows
 ```
 
-### 4. Install Dependencies (2 min)
-
+### 4. Install Dependencies
 ```bash
 pip install -r requirements.txt
 ```
 
-### 5. Get API Key (2 min)
-
+### 5. Get API Key
 1. Go to https://console.groq.com
-2. Sign up (email or OAuth)
-3. Click "API Keys"
-4. Create new key
-5. Copy the key (starts with `gsk_`)
+2. Sign up (free)
+3. Click "API Keys" → "Create New Secret Key"
+4. Copy the key (starts with `gsk_`)
 
-### 6. Configure App (30 sec)
-
+### 6. Configure
 ```bash
-# Copy template
 cp .env.example .env
-
 # Edit .env and paste your key
-nano .env  # or use your favorite editor
 ```
 
-Should look like:
-```env
-GROQ_API_KEY=gsk_paste_your_key_here_xxxxxxxxxxx
-```
-
-### 7. Run App (immediate)
-
+### 7. Run
 ```bash
 streamlit run app.py
 ```
 
-Browser opens automatically at **http://localhost:8501** ✅
+Browser opens at **http://localhost:8501**
 
 ---
 
-## Usage (2 min)
+## Usage
 
-1. **Select Level** → Pick from sidebar (beginner/intermediate/advanced)
-2. **Paste URL** → Enter a GitHub repo URL
-   - Example: `https://github.com/anthropics/claude-code`
-3. **View Results** → Summary appears instantly!
-
----
-
-## Troubleshooting Quick Fixes
-
-| Problem | Solution |
-|---------|----------|
-| "command not found: python3" | Install Python from python.org |
-| "venv not found" | Use `python -m venv venv` (not python3) |
-| "(venv) not in prompt" | Run `source venv/bin/activate` again |
-| "ModuleNotFoundError" | Activate venv, then `pip install -r requirements.txt` |
-| "GROQ_API_KEY not set" | Restart app after editing `.env` |
-| "Port 8501 in use" | Use `streamlit run app.py --server.port 8502` |
-| "Could not fetch README" | Try a different public GitHub repo |
-
-**Still stuck?** See [SETUP.md](SETUP.md) for detailed help.
+1. **Paste a GitHub URL** in the sidebar
+2. **Select your experience level** (beginner/intermediate/advanced)
+3. **Choose explanation style** (concise/balanced/detailed)
+4. **Ask a question** — use a preset button or type your own
+5. **Watch the pipeline** — Index → Plan → Research → Synthesize → Review
+6. **Explore the tabs** — Evidence, Memory, Trace, Details
 
 ---
 
-## What's Happening
+## What Happens Under the Hood
 
 ```
-You paste GitHub URL
-         ↓
-App extracts owner/repo
-         ↓
-Fetches README + file list from GitHub API (free, no auth)
-         ↓
-Sends to Groq API with your prompt
-         ↓
-Groq's Llama 3.3-70b AI generates summary
-         ↓
-Results displayed in app!
-```
-
-**All free** 🎉
-
----
-
-## Common Commands
-
-```bash
-# Stop the app
-Ctrl + C
-
-# Rerun the app
-streamlit run app.py
-
-# Use different port
-streamlit run app.py --server.port 8502
-
-# Deactivate venv
-deactivate
-
-# Reactivate venv
-source venv/bin/activate
-
-# Check installed packages
-pip list
-
-# Update dependencies
-pip install -r requirements.txt --upgrade
+Paste GitHub URL
+       ↓
+📚 INDEX — ChromaDB indexes README, docs, configs, source files
+       ↓
+📋 PLAN — Planner LLM creates 3-5 investigation steps
+       ↓
+🔬 RESEARCH — Researcher executes each step with tools (list_files, read_file, search_docs)
+       ↓
+✍️ SYNTHESIZE — Combines findings into a cited answer
+       ↓
+🔍 REVIEW — Reviewer checks for accuracy, citations, hallucinations
+       ↓
+✏️ REVISE — Auto-fixes if quality score < 6/10
+       ↓
+Display answer + Evidence tab + Memory tab + Trace tab
 ```
 
 ---
 
-## Environment Variables
+## Project Structure
 
-Only 1 required:
-
-```env
-GROQ_API_KEY=gsk_your_api_key_here
 ```
-
-Optional (for future features):
-```env
-OPENAI_API_KEY=sk_...
-GEMINI_API_KEY=...
+RepoLens/
+├── app.py              # Main app — UI + pipeline
+├── tools.py            # 3 tools: list_files, read_file, search_docs
+├── planner.py          # Planner agent
+├── retriever.py        # ChromaDB RAG indexing + retrieval
+├── reviewer.py         # Reviewer agent + auto-revision
+├── memory.py           # SQLite memory (profile + history)
+├── state.py            # Dataclasses (Plan, PlanStep, etc.)
+├── tracer.py           # Observability (timing + events)
+├── evaluator.py        # 10-question benchmark suite
+├── requirements.txt    # Dependencies
+├── .env                # Your API key (private, gitignored)
+└── .env.example        # Template
 ```
 
 ---
@@ -189,46 +128,24 @@ https://github.com/groq/groq-python
 
 ---
 
-## File Structure
+## Troubleshooting
 
-```
-RepoLens/
-├── app.py                    ← Main app to run
-├── requirements.txt          ← Dependencies
-├── .env                      ← Your config (private)
-├── .env.example              ← Template
-├── README.md                 ← Full documentation
-├── SETUP.md                  ← Detailed setup guide
-├── QUICKSTART.md             ← This file
-├── CONTRIBUTING.md           ← How to contribute
-├── CHANGELOG.md              ← Version history
-└── venv/                     ← Virtual env (ignore)
-```
+| Problem | Solution |
+|---------|----------|
+| `command not found: python3` | Install Python from python.org |
+| `ModuleNotFoundError` | Activate venv, then `pip install -r requirements.txt` |
+| `GROQ_API_KEY not set` | Check `.env` file exists with your key, restart app |
+| `Port 8501 in use` | `streamlit run app.py --server.port 8502` |
+| `Could not fetch README` | Repo may be private — use public repos only |
+| Rate limit errors | Wait 1 minute, Groq free tier has per-minute limits |
 
----
-
-## Next Steps
-
-1. **Use the app** — Try a few repos
-2. **Explore code** — Check [app.py](app.py) to see how it works
-3. **Customize** — Edit prompts or add features
-4. **Deploy** — Put it online at streamlit.io (free)
-5. **Contribute** — See [CONTRIBUTING.md](CONTRIBUTING.md)
+**More help**: See [SETUP.md](SETUP.md) for detailed troubleshooting.
 
 ---
 
 ## Quick Links
 
-- 🚀 [Groq API](https://console.groq.com) — Get free API key
-- 📖 [Full Setup Guide](SETUP.md) — Detailed instructions
-- 💡 [How to Contribute](CONTRIBUTING.md) — Help improve RepoLens
-- 🐛 [Report Issues](https://github.com/akhil13algo/RepoLens/issues) — Found a bug?
-- 📝 [Main Docs](README.md) — Complete documentation
-
----
-
-## That's It! 🎉
-
-You're ready to understand any GitHub repo in seconds.
-
-Enjoy RepoLens! ✨
+- [Groq Console](https://console.groq.com) — Free API key
+- [Full Setup Guide](SETUP.md) — Detailed instructions
+- [Architecture Guide](ARCHITECTURE_GUIDE.md) — How it works
+- [Contributing](CONTRIBUTING.md) — Help improve RepoLens

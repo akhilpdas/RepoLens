@@ -8,172 +8,120 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Planned
-- Multi-agent workflow (planner → researcher → reviewer)
-- RAG with ChromaDB for in-depth analysis
-- Persistent memory with SQLite
-- Interactive Q&A beyond summaries
-- Code snippet extraction
-- Evaluation benchmarks
-- OpenTelemetry tracing
+- GitHub auth token for private repos + higher rate limits
+- LangGraph-based workflow orchestration
+- Persistent ChromaDB storage (disk-backed)
+- Streaming responses
+- Export answers as Markdown/PDF
+- Human-in-the-loop approval step
+- Multi-repo comparison
+- Deploy to Streamlit Cloud
 
 ---
 
-## [1.0.0] - 2025-04-12
+## [2.0.0] - 2026-04-14
 
-### Added
+### Added — Days 4-10
+
+#### Day 4: RAG Retrieval (`retriever.py`)
+- ChromaDB in-memory vector store for repo file indexing
+- Selective indexing: README, docs/, configs, package manifests, entry-point source files
+- Text chunking (800 chars, 200 overlap) with cosine similarity retrieval
+- `RepoRetriever` class with `index()` and `query()` methods
+- `get_context_string()` for prompt injection of evidence chunks
+
+#### Day 5: Reviewer Agent (`reviewer.py`)
+- Multi-agent pattern: Planner → Researcher → Reviewer
+- Reviewer checks: unsupported claims, missing citations, vague instructions, bad file refs, hallucinations
+- JSON-structured review with verdict (pass/needs_revision) and quality score (1-10)
+- Auto-revision via `revise_answer()` when quality score < 6
+
+#### Day 6: Memory (`memory.py`)
+- SQLite-backed persistent storage
+- User profile: skill_level, explanation_style, last_repo
+- Question history (last 20 entries) with answer previews and quality scores
+- `get_memory_context()` for prompt personalization
+
+#### Day 7: UI Overhaul (`app.py`)
+- Sidebar: repo URL, experience level, explanation style, 5 preset demo buttons, current plan display
+- Main panel: quality badge + final answer
+- 4 tabs: Evidence (chunks + indexed files), Memory (profile + history), Trace (timing + event log), Details (plan + findings + tool calls + review JSON)
+- Landing page with feature descriptions when no URL is entered
+
+#### Day 8: Tracing & Evaluation (`tracer.py`, `evaluator.py`)
+- `RunTrace` with per-phase timing, tool call counts, quality scores, error tracking
+- `Timer` context manager for timing operations
+- 10-question benchmark suite with 5-criteria scoring
+- Criteria: right_file, citation_present, answer_complete, no_hallucination, clear_for_level
+
+#### Day 9: Prompt Polish
+- Researcher: strict evidence-only rules, concise bullet-point findings
+- Synthesizer: mandatory file citations, no filler, level-aware language
+- Planner: focused 3-5 steps, question-specific plans
+- Reviewer: stricter scoring guidelines with score band descriptions
+
+#### Day 10: Portfolio Packaging
+- Complete README rewrite with architecture diagram, pipeline table, evaluation criteria
+- MIT LICENSE file
+- Updated all documentation files
+
+### Changed
+- `app.py` rewritten from single-prompt to 5-phase pipeline (Index → Plan → Research → Synthesize → Review)
+- `requirements.txt` cleaned to minimal direct dependencies
+- All Python files made compatible with Python 3.9 (`from __future__ import annotations`)
+
+---
+
+## [1.1.0] - 2026-04-13
+
+### Added — Days 2-3
+
+#### Day 2: Tool Calling (`tools.py`)
+- 3 custom tools: `list_files(path)`, `read_file(path)`, `search_docs(query)`
+- Agentic tool-calling loop — model decides which tools to call
+- Tool definitions in OpenAI/Groq function-calling JSON format
+- Evidence-based system prompt
+- Question UI with 5 quick-pick buttons + custom input
+- Transparency: expandable "Tool calls made" panel
+
+#### Day 3: Planning (`planner.py`, `state.py`)
+- Planner LLM that converts questions into 3-6 step investigation plans
+- Structured state: `Plan`, `PlanStep`, `SessionState`, `StepStatus`
+- 3-phase pipeline: Plan → Research → Synthesize
+- Step-by-step execution with previous findings as context
+
+### Changed
+- `app.py` refactored from one-shot prompt to agentic tool-calling loop
+- Switched from OpenAI to Groq (Llama 3.3-70b) for free-tier API access
+- Switched from Google Gemini to Groq after Gemini quota exhaustion
+
+---
+
+## [1.0.0] - 2026-04-12
+
+### Added — Day 1
 - Initial release of RepoLens
-- AI-powered GitHub repository summarization using Groq (Llama 3.3-70b)
-- Experience-level tailored explanations (beginner, intermediate, advanced)
-- Structured summaries including:
-  - What the repo does
-  - Key files to read first
-  - How to run it
-  - Architecture overview
-  - Good first contribution ideas
 - Streamlit web interface with sidebar and multi-column layout
 - GitHub API integration for README and file tree fetching
+- AI-powered repo summarization (single prompt)
+- Experience-level tailored explanations (beginner, intermediate, advanced)
 - Environment variable configuration with `.env` support
 - Error handling and fallback display of raw README
-- Virtual environment setup
-- Comprehensive documentation
 
 ### Technical Details
-- Built with Python 3.13
-- Streamlit 1.56.0 for UI
-- Groq API client 1.1.2
-- LangGraph and ChromaDB integration (for future features)
-- 130+ total dependencies with exact version pinning
-
-### Features
-- ✅ Fetch public GitHub repos (no auth required)
-- ✅ Parse README.md content
-- ✅ Extract file/folder structure
-- ✅ Generate AI summaries with Groq
-- ✅ Experience level selection
-- ✅ Error handling with fallbacks
-- ✅ Clean, responsive web UI
-- ✅ Free tier API support
-
-### Documentation
-- README.md - Main documentation
-- SETUP.md - Step-by-step setup guide
-- CONTRIBUTING.md - Contribution guidelines
-- .env.example - Environment template
-- .claude/workspace.md - Project workspace info
-- requirements.txt - Frozen dependencies
-
-### Known Limitations
-- Private repositories not supported
-- Single repo summarization per request
-- No caching of results
-- GitHub API rate limit: 60 requests/hour (unauthenticated)
-- Groq free tier subject to rate limits (see docs)
-
----
-
-## Version History
-
-### Planning for Future Releases
-
-#### v1.1.0 (Planned)
-- User authentication for API keys
-- Caching layer for frequently requested repos
-- Export summaries as Markdown
-- Improved error messages
-- Support for GitHub authentication token
-
-#### v2.0.0 (Planned)
-- Multi-agent architecture
-- RAG with ChromaDB
-- Database persistence
-- Advanced filtering and search
-- Batch processing
-- API endpoint
-
----
-
-## Migration Guides
-
-### Upgrading from v0.x to v1.0.0
-
-If you were using an earlier version:
-
-1. Update code:
-   ```bash
-   git pull origin main
-   ```
-
-2. Update dependencies:
-   ```bash
-   source venv/bin/activate
-   pip install -r requirements.txt --upgrade
-   ```
-
-3. Update environment file:
-   ```bash
-   cp .env.example .env
-   # Add your GROQ_API_KEY
-   ```
-
-4. Restart the app:
-   ```bash
-   streamlit run app.py
-   ```
-
----
-
-## Deprecations
-
-None yet (v1.0.0 is the initial release).
-
----
-
-## Security
-
-### Reporting Security Issues
-
-Please do NOT open public issues for security vulnerabilities.
-
-Email security concerns to: [security contact - to be added]
-
-### Security Considerations
-
-- Never commit `.env` file to Git
-- API keys should not be shared
-- Only uses public GitHub API (no private repo access in v1.0.0)
-- Groq API calls are encrypted in transit
-
----
-
-## Performance
-
-### Improvements Over Time
-
-- v1.0.0: Initial release, baseline performance
-
-### Benchmarks
-
-- Average summary generation: 2-5 seconds
-- GitHub API call: < 1 second
-- Streamlit app startup: < 3 seconds
+- Built with Python 3.9+
+- Streamlit for UI
+- Groq API client with Llama 3.3-70b
+- GitHub REST API (no auth required for public repos)
 
 ---
 
 ## Contributors
 
-### v1.0.0
-- **Akhil** - Initial development and documentation
+- **Akhil P Das** (@akhilpdas) — Creator and maintainer
 
 ---
 
-## References
-
-- [Semantic Versioning](https://semver.org/)
-- [Keep a Changelog](https://keepachangelog.com/)
-- [Python Release Cycle](https://devguide.python.org/versions/)
-
----
-
-**Last Updated**: 2025-04-12
-**Current Version**: 1.0.0
+**Last Updated**: 2026-04-14
+**Current Version**: 2.0.0
 **Status**: Active Development
