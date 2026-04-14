@@ -59,8 +59,16 @@ RESPOND with this exact JSON format:
 If the answer is good (score >= 7, no critical issues), set verdict to "pass".
 Otherwise set verdict to "needs_revision".
 
-Be strict but fair. Not every sentence needs a citation — focus on factual claims
-about what the code does, what files exist, and how to run things."""
+SCORING GUIDELINES:
+- Be strict but fair. Not every sentence needs a citation — focus on factual claims.
+- Reject answers that guess at file paths without evidence.
+- Reject vague setup instructions ("install dependencies" without specifying commands).
+- Reject answers that are mostly filler with little substance.
+- A good answer: cites files, gives specific commands, matches the user's level.
+- Score 9-10: Excellent, well-cited, complete, no issues.
+- Score 7-8: Good with minor issues (a missing citation or two).
+- Score 5-6: Acceptable but has vague sections or unsupported claims.
+- Score 1-4: Poor — significant hallucinations, missing evidence, or off-topic."""
 
 
 def review_answer(

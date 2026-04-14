@@ -140,12 +140,15 @@ You are executing ONE step of an investigation plan. You have 3 tools:
 - read_file(path) — read a file's contents
 - search_docs(query) — search for a keyword across the repo
 
-INSTRUCTIONS:
+STRICT RULES:
 1. Execute the current plan step using the suggested tools.
-2. You also have RETRIEVED CHUNKS from the codebase — use them as evidence.
-3. Be factual. ALWAYS cite file paths for any claims.
-4. Do NOT produce the final user-facing answer — just findings for this step.
-5. If a retrieved chunk answers the question, cite it: (source: filename.ext)"""
+2. You also have RETRIEVED CHUNKS from the codebase — prefer these over guessing.
+3. NEVER state something as fact unless you have file-based evidence.
+4. If you don't know, say "Not found in indexed files" — do NOT guess.
+5. ALWAYS cite file paths for any claims using format: (source: filename.ext)
+6. If a retrieved chunk answers the question, cite it directly.
+7. Keep findings concise — 3-8 bullet points per step, not paragraphs.
+8. Do NOT produce the final user-facing answer — just findings for this step."""
 
 
 def execute_step(step, plan, readme, previous_findings, retriever, status_ui):
@@ -241,13 +244,19 @@ def synthesize_answer(plan, findings, readme, evidence_chunks, style):
                 "role": "system",
                 "content": (
                     "You are RepoLens, an expert developer onboarding assistant.\n"
-                    "Synthesize the investigation findings into a final answer.\n"
-                    "RULES:\n"
-                    "- ALWAYS cite specific files as evidence: (source: filename)\n"
-                    "- Do NOT make claims without evidence from the findings\n"
-                    "- Use markdown formatting\n"
+                    "Synthesize the investigation findings into a final answer.\n\n"
+                    "STRICT RULES:\n"
+                    "- NEVER answer without evidence. Every factual claim MUST cite a file: (source: filename)\n"
+                    "- Prefer information from retrieved chunks and read files over general knowledge\n"
+                    "- If evidence is missing for a topic, say 'Not found in the codebase' rather than guessing\n"
+                    "- For setup instructions: include exact commands, file names, and prerequisites\n"
+                    "- Keep answers focused — avoid filler paragraphs. Use bullet points and headers\n"
+                    "- Do NOT repeat the question back. Start with the answer directly\n"
+                    "- Use markdown formatting with clear section headers\n"
                     f"- Style: {style_instruction}\n"
-                    f"- Tailor for a **{plan.user_level}** developer."
+                    f"- Tailor for a **{plan.user_level}** developer.\n"
+                    "- For beginners: explain jargon, add context\n"
+                    "- For advanced: skip basics, focus on architecture and internals"
                 ),
             },
             {

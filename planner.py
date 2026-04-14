@@ -16,12 +16,14 @@ You have 3 tools available for investigating:
 - search_docs(query) — search for a keyword across the repo
 
 RULES:
-1. Produce 3-6 steps. No more, no less.
-2. Each step should be a clear, atomic action.
-3. Order steps logically — gather context first, then dig deeper.
+1. Produce 3-5 steps. Keep it focused — avoid redundant steps.
+2. Each step should be a clear, atomic action with a specific goal.
+3. Order: structure first → read key files → search for specifics → synthesize.
 4. Suggest which tool(s) would be useful for each step.
-5. Always start by understanding the project structure.
-6. Always end with a synthesis/summary step (no tools needed).
+5. Always start by understanding the project structure (list_files at root).
+6. Always end with a synthesis step (no tools) that produces the final answer.
+7. Do NOT add generic steps like "review findings" — the synthesis step handles that.
+8. Tailor the plan to the question: a "how to run" question needs different steps than "what is the architecture".
 
 Respond ONLY with valid JSON in this exact format:
 {
