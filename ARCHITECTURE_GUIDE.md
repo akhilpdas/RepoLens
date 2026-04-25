@@ -2,6 +2,12 @@
 
 A detailed technical guide explaining how RepoLens works, what each part does, and how everything connects together.
 
+> **⚠️ NOTE: v3 Release (April 2026)**  
+> This guide was written for v2 and contains references to the old inline pipeline (functions `execute_step`, `synthesize_answer`).  
+> **In v3, all pipeline phases are now orchestrated by LangGraph** (see `graph.py` with `StateGraph`, conditional `revise → review` edge).  
+> **New features:** Persistent ChromaDB cache (24h TTL), GitHub token auth, streaming synthesis, human-in-the-loop approval, MD/PDF export, eval suite wiring, Streamlit Cloud config.  
+> For current architecture, see [README.md](README.md) and [workspace.md](.claude/workspace.md).
+
 ---
 
 ## Table of Contents

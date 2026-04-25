@@ -2,6 +2,15 @@
 
 Welcome! This guide explains **everything about RepoLens** in simple terms that anyone can understand — even if you have never built an AI application before.
 
+> **⚠️ NOTE: v3 Release (April 2026)**  
+> This guide describes the v2 architecture. **v3 major changes:**  
+> * **LangGraph orchestration** — all phases now wired by a real `StateGraph` (cleaner than the inline pipeline)  
+> * **Streaming synthesis** — answers render token-by-token in the UI (no longer wait for the full pipeline)  
+> * **Human approval gate** — you review & approve drafts before they're saved (new HITL feature)  
+> * **Persistent cache** — ChromaDB indexes are saved to disk, reused within 24 hours  
+> * **Export to PDF/MD** — download answers with citations  
+> For updated pipeline diagram, see [workspace.md](.claude/workspace.md).
+
 ---
 
 ## Table of Contents

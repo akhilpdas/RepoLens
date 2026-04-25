@@ -62,32 +62,44 @@ git push origin feature/my-feature
 
 ```
 RepoLens/
-├── app.py              # Main app — UI + 5-phase pipeline
+├── app.py              # Main Streamlit app — UI + HITL stage machine
+├── graph.py            # LangGraph StateGraph orchestration
+├── gh.py               # GitHub auth-aware HTTP helper
 ├── tools.py            # 3 tools (list_files, read_file, search_docs)
 ├── planner.py          # Planner agent
-├── retriever.py        # ChromaDB RAG
-├── reviewer.py         # Reviewer agent
-├── memory.py           # SQLite memory
-├── state.py            # Dataclasses
-├── tracer.py           # Observability
-├── evaluator.py        # Benchmark evaluation
+├── retriever.py        # Persistent ChromaDB RAG (24h TTL cache)
+├── reviewer.py         # Reviewer agent + revision
+├── memory.py           # SQLite-backed user profile + history
+├── state.py            # Structured state classes
+├── tracer.py           # Observability (timing + event log)
+├── evaluator.py        # 10-question benchmark suite
+├── export.py           # MD + PDF export (fpdf2 + DejaVuSans)
 ├── requirements.txt    # Dependencies
-└── .env.example        # Env template
+├── .env.example        # Env template
+└── .streamlit/         # Streamlit Cloud config + secrets
 ```
 
-### Key Functions
+### Key Functions & Classes
 
-| File | Function | Purpose |
-|------|----------|---------|
-| `app.py` | `execute_step()` | Runs one plan step with tool calling |
-| `app.py` | `synthesize_answer()` | Combines findings into final answer |
+| Module | Symbol | Purpose |
+|--------|--------|---------|
+| `graph.py` | `build_pre_synth_graph()` | Index→Plan→Research subgraph |
+| `graph.py` | `build_post_synth_graph()` | Review→(Revise)? subgraph |
+| `graph.py` | `synthesize_stream()` | Streaming answer generator |
+| `graph.py` | `route_after_review()` | Conditional revise edge logic |
 | `planner.py` | `create_plan()` | LLM creates investigation plan |
-| `retriever.py` | `RepoRetriever.index()` | Indexes repo files into ChromaDB |
+| `retriever.py` | `RepoRetriever.index()` | Indexes repo, caches to disk |
 | `retriever.py` | `RepoRetriever.query()` | Retrieves relevant chunks |
-| `reviewer.py` | `review_answer()` | Quality-checks the answer |
-| `reviewer.py` | `revise_answer()` | Fixes issues from review |
-| `memory.py` | `get_memory_context()` | Builds personalized prompt context |
-| `evaluator.py` | `run_eval_suite()` | Runs all 10 benchmark questions |
+| `retriever.py` | `RepoRetriever.is_fresh()` | TTL + schema version check |
+| `reviewer.py` | `review_answer()` | Quality-checks answer (score 1-10) |
+| `reviewer.py` | `revise_answer()` | Auto-fixes low-quality answers |
+| `evaluator.py` | `run_eval_suite()` | Runs 10 benchmark questions |
+| `export.py` | `to_markdown()` | Exports answer + metadata to MD |
+| `export.py` | `to_pdf()` | Exports answer + metadata to PDF |
+| `gh.py` | `gh_get()` | GitHub API call w/ optional token |
+| `memory.py` | `add_question()` | Persists Q&A to SQLite |
+| `memory.py` | `get_profile()` / `update_profile()` | User prefs (skill level, style) |
+| `app.py` | `_reset_pipeline_state()` | Clears draft/stage on new question |
 
 ---
 
@@ -113,23 +125,22 @@ test: add benchmark for private repo handling
 
 ## Areas for Contribution
 
-### High Priority
-- [ ] Add unit tests for core functions
-- [ ] GitHub auth token support for private repos
-- [ ] Persistent ChromaDB (disk-backed instead of in-memory)
-- [ ] Streaming responses during pipeline execution
+### v3 Features (Shipped)
+- [x] LangGraph workflow orchestration
+- [x] GitHub auth token support (private repos + 5000 req/hr)
+- [x] Persistent ChromaDB (disk-backed, 24h TTL, schema versioning)
+- [x] Streaming responses (progressively render synthesis)
+- [x] Human-in-the-loop approval gate (Approve/Revise/Discard)
+- [x] Export answers as Markdown/PDF (fpdf2 + DejaVuSans)
+- [x] Evaluator suite wiring (3-Q subset or full 10-Q)
+- [x] Streamlit Cloud deploy config
 
-### Medium Priority
-- [ ] Export answers as Markdown/PDF
-- [ ] LangGraph workflow orchestration
-- [ ] Caching layer for frequently requested repos
-- [ ] Human-in-the-loop approval button
-
-### Low Priority
-- [ ] GitLab/Bitbucket support
+### Future (v4+)
+- [ ] Unit tests for core functions (planner, reviewer, retriever)
+- [ ] Multi-repo side-by-side comparison
+- [ ] GitLab / Bitbucket support (beyond GitHub)
 - [ ] Dark mode theme
-- [ ] Multi-repo comparison
-- [ ] Browser extension
+- [ ] Browser extension for inline documentation
 
 ---
 

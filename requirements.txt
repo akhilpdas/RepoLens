@@ -1,6 +1,7 @@
 streamlit>=1.30.0
 groq>=0.4.0
 chromadb>=0.4.22
-langgraph>=0.0.40
+langgraph>=0.2.0
 requests>=2.31.0
 python-dotenv>=1.0.0
+fpdf2>=2.7.6

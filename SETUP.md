@@ -2,6 +2,9 @@
 
 Complete step-by-step guide to get RepoLens running on your machine.
 
+> **See [QUICKSTART.md](QUICKSTART.md) for a faster 5-minute setup.**  
+> **v3 (current):** LangGraph orchestration, streaming, persistent cache, HITL approval, exports. [See CHANGELOG](CHANGELOG.md).
+
 ---
 
 ## Prerequisites

@@ -2,6 +2,14 @@
 
 A comprehensive guide explaining the current RepoLens system in detail: what it does, how every component works, and why each design decision was made.
 
+> **⚠️ NOTE: v3 Release (April 2026)**  
+> This guide was written for v2. **In v3 (current):**  
+> * Pipeline is orchestrated by **LangGraph `StateGraph`** (see `graph.py`), not inline functions.  
+> * The old `execute_step()` and `synthesize_answer()` functions moved into graph nodes.  
+> * **New subsystems:** persistent ChromaDB (24h TTL), streaming synthesis (`st.write_stream`), human-in-the-loop (stage machine), PDF/MD export (fpdf2).  
+> * **GitHub auth** optional via `GITHUB_TOKEN` env var (5000 req/hr + private repos).  
+> For the latest, read [README.md](README.md) and [.claude/workspace.md](.claude/workspace.md).
+
 ---
 
 ## Table of Contents

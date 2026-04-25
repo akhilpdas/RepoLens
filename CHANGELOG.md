@@ -8,14 +8,67 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Planned
-- GitHub auth token for private repos + higher rate limits
-- LangGraph-based workflow orchestration
-- Persistent ChromaDB storage (disk-backed)
-- Streaming responses
-- Export answers as Markdown/PDF
-- Human-in-the-loop approval step
-- Multi-repo comparison
-- Deploy to Streamlit Cloud
+- Multi-repo side-by-side comparison
+
+---
+
+## [3.0.0] - 2026-04-25
+
+Major release: completes the originally planned scope. Pipeline is now LangGraph-orchestrated with disk-backed RAG, streaming answers, human approval, and exportable reports.
+
+### Added
+
+#### LangGraph orchestration (`graph.py`)
+- Replaced inline 5-phase block in `app.py` with a real `StateGraph` (`GraphState` TypedDict).
+- Conditional `revise → review` edge (capped at 1 iteration when quality score < 6).
+- Two compiled subgraphs (`build_pre_synth_graph`, `build_post_synth_graph`) so streaming synthesis can run between them.
+
+#### GitHub auth token (`gh.py`)
+- Central `gh_get` / `gh_headers` helper used by `retriever.py`, `tools.py`, `app.py`.
+- Optional `GITHUB_TOKEN` env var lifts rate limit from 60 → 5,000 req/hr and unlocks private repos.
+- Soft fallback — works without a token on public repos.
+
+#### Persistent ChromaDB cache (`retriever.py`)
+- Switched from `EphemeralClient` to `PersistentClient` rooted at `./.chroma_cache` (configurable via `CHROMA_PATH`).
+- 24-hour freshness TTL + `SCHEMA_VERSION` invalidation.
+- "🔄 Re-index repo" sidebar button forces a rebuild.
+
+#### Streaming answers
+- `synthesize_stream` generator wired to `st.write_stream`; tokens render progressively.
+- Non-streaming `synthesize_answer_blocking` retained for the eval suite.
+
+#### Evaluator wiring
+- `run_eval_suite` now exposed via a sidebar button + 📈 Eval tab.
+- Default 3-question quick run; opt-in **Full suite (10 Q)** checkbox.
+- `limit` and `progress_callback` params added to `evaluator.run_eval_suite`.
+
+#### Markdown + PDF export (`export.py`)
+- `to_markdown` and `to_pdf` produce downloadable reports with citations.
+- PDF uses `fpdf2`; bundled `assets/DejaVuSans.ttf` enables full Unicode support.
+- Graceful fallback to core Helvetica + latin-1 sanitization if the font isn't bundled.
+
+#### Human-in-the-loop approval
+- Stage machine in `app.py` (`input → running → approval → user_revise → approved → done`).
+- Three actions per draft: ✅ Approve, ✏️ Request revision (free-text feedback), 🗑️ Discard.
+- `add_question(...)` and `RunTrace.finalize()` only fire on approval — discarded drafts leave no trace.
+
+#### Streamlit Cloud deploy
+- `.streamlit/config.toml` + `.streamlit/secrets.toml.example`.
+- App falls back from `os.environ` to `st.secrets` automatically.
+- README "Deploy on Streamlit Cloud" section.
+
+### Changed
+- `requirements.txt` adds `langgraph>=0.2.0` and `fpdf2>=2.7.6`.
+- `.gitignore` adds `.chroma_cache/`, `repolens_memory.db`, `assets/DejaVuSans.ttf`.
+- `.env.example` documents `GITHUB_TOKEN` and `CHROMA_PATH`.
+- README: updated architecture/features/roadmap to reflect shipped scope.
+
+### Removed
+- Inline `RESEARCHER_SYSTEM_PROMPT`, `execute_step`, `synthesize_answer` from `app.py` (moved into `graph.py`).
+
+### Fixed
+- `retriever.py`: dropped `hnsw:space` from the freshness-stamp `collection.modify(...)` call — newer ChromaDB (≥1.x) rejects modifying the distance function after creation.
+- `export.py`: PDF rendering now resets X to the left margin before every `multi_cell`. Without this, a bullet immediately following a paragraph (no blank line between) raised "Not enough horizontal space to render a single character" on fpdf2 ≥2.8.
 
 ---
 
@@ -122,6 +175,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-**Last Updated**: 2026-04-14
-**Current Version**: 2.0.0
+**Last Updated**: 2026-04-25
+**Current Version**: 3.0.0
 **Status**: Active Development

@@ -65,12 +65,14 @@ Browser opens at **http://localhost:8501**
 
 ## Usage
 
-1. **Paste a GitHub URL** in the sidebar
+1. **Paste a GitHub URL** in the sidebar (public or private if you set `GITHUB_TOKEN`)
 2. **Select your experience level** (beginner/intermediate/advanced)
 3. **Choose explanation style** (concise/balanced/detailed)
 4. **Ask a question** — use a preset button or type your own
-5. **Watch the pipeline** — Index → Plan → Research → Synthesize → Review
-6. **Explore the tabs** — Evidence, Memory, Trace, Details
+5. **Streaming synthesis** — watch the answer render token-by-token
+6. **Approve or revise** — review the draft, approve to save, or request changes
+7. **Explore the tabs** — Evidence, Memory, Trace, Details, Eval
+8. **Export** — download as Markdown or PDF
 
 ---
 
@@ -79,19 +81,33 @@ Browser opens at **http://localhost:8501**
 ```
 Paste GitHub URL
        ↓
-📚 INDEX — ChromaDB indexes README, docs, configs, source files
+    ┌──────────────────────────────────┐
+    │  PRE-SYNTH SUBGRAPH              │
+    │  ─────────────────────────────── │
+📚  INDEX — ChromaDB (persistent cache, 24h TTL)
+📋  PLAN — Planner LLM creates 3-5 investigation steps
+🔬  RESEARCH — Researcher executes steps with tools
+    └──────────────────────────────────┘
        ↓
-📋 PLAN — Planner LLM creates 3-5 investigation steps
+✍️  STREAMING SYNTHESIS — tokens render progressively
        ↓
-🔬 RESEARCH — Researcher executes each step with tools (list_files, read_file, search_docs)
+    🧑‍⚖️  HUMAN APPROVAL GATE
+       ├─ ✅ Approve → continue
+       ├─ ✏️ Request revision → call LLM to fix
+       └─ 🗑️ Discard → nothing saved
        ↓
-✍️ SYNTHESIZE — Combines findings into a cited answer
+    ┌──────────────────────────────────┐
+    │  POST-SYNTH SUBGRAPH             │
+    │  ──────────────────────────────  │
+🔍  REVIEW — Checks accuracy (score 1-10)
+✏️  REVISE — Auto-fixes if score < 6 (capped 1x)
+    └──────────────────────────────────┘
        ↓
-🔍 REVIEW — Reviewer checks for accuracy, citations, hallucinations
+💾 PERSIST — Add to memory, finalize trace
        ↓
-✏️ REVISE — Auto-fixes if quality score < 6/10
+📤 EXPORT — Download as MD or PDF (DejaVu Unicode)
        ↓
-Display answer + Evidence tab + Memory tab + Trace tab
+📊 TABS — Evidence, Memory, Trace, Details, Eval
 ```
 
 ---
@@ -100,18 +116,22 @@ Display answer + Evidence tab + Memory tab + Trace tab
 
 ```
 RepoLens/
-├── app.py              # Main app — UI + pipeline
-├── tools.py            # 3 tools: list_files, read_file, search_docs
-├── planner.py          # Planner agent
-├── retriever.py        # ChromaDB RAG indexing + retrieval
-├── reviewer.py         # Reviewer agent + auto-revision
-├── memory.py           # SQLite memory (profile + history)
-├── state.py            # Dataclasses (Plan, PlanStep, etc.)
-├── tracer.py           # Observability (timing + events)
-├── evaluator.py        # 10-question benchmark suite
-├── requirements.txt    # Dependencies
-├── .env                # Your API key (private, gitignored)
-└── .env.example        # Template
+├── app.py                 # Main Streamlit UI + HITL stage machine
+├── graph.py               # LangGraph StateGraph orchestration
+├── gh.py                  # GitHub auth-aware HTTP helper
+├── tools.py               # 3 tools: list_files, read_file, search_docs
+├── planner.py             # Planner agent
+├── retriever.py           # Persistent ChromaDB RAG (24h TTL)
+├── reviewer.py            # Reviewer agent + auto-revision
+├── memory.py              # SQLite memory (profile + history)
+├── state.py               # Dataclasses (Plan, PlanStep, etc.)
+├── tracer.py              # Observability (timing + events)
+├── evaluator.py           # 10-question benchmark suite
+├── export.py              # MD + PDF export (fpdf2 + DejaVuSans)
+├── requirements.txt       # Dependencies
+├── .env                   # Your API keys (private, gitignored)
+├── .env.example           # Template
+└── .streamlit/            # Streamlit Cloud config + secrets
 ```
 
 ---
@@ -134,10 +154,12 @@ https://github.com/groq/groq-python
 |---------|----------|
 | `command not found: python3` | Install Python from python.org |
 | `ModuleNotFoundError` | Activate venv, then `pip install -r requirements.txt` |
-| `GROQ_API_KEY not set` | Check `.env` file exists with your key, restart app |
+| `GROQ_API_KEY not set` | Check `.env` file has your key, restart app |
 | `Port 8501 in use` | `streamlit run app.py --server.port 8502` |
-| `Could not fetch README` | Repo may be private — use public repos only |
-| Rate limit errors | Wait 1 minute, Groq free tier has per-minute limits |
+| `Could not fetch README (404)` | Repo is private — add `GITHUB_TOKEN` to `.env` or use public repos |
+| Rate limit errors (GitHub) | Set `GITHUB_TOKEN` to lift limit from 60 → 5000 req/hr |
+| Rate limit errors (Groq) | Groq free tier has per-minute limits, wait 1 min and retry |
+| PDF export fails | DejaVu font may be missing; unicode fallback (Helvetica + latin-1) will be used |
 
 **More help**: See [SETUP.md](SETUP.md) for detailed troubleshooting.
 
