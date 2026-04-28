@@ -146,61 +146,50 @@ class TestRunEvalSuite(unittest.TestCase):
         return lambda q: answer
 
     @patch("evaluator.score_answer")
-    def test_runs_all_10_questions_by_default(self, mock_score):
+    def test_runs_all_10_questions(self, mock_score):
         mock_score.return_value = {
             "right_file": 1, "citation_present": 1, "answer_complete": 1,
             "no_hallucination": 1, "clear_for_level": 1, "total": 5, "notes": "OK"
         }
         result = run_eval_suite(self._make_answer_fn(), "owner/repo", "beginner", [])
-        self.assertEqual(result["questions_run"], 10)
         self.assertEqual(mock_score.call_count, 10)
+        self.assertEqual(len(result["results"]), 10)
 
     @patch("evaluator.score_answer")
-    def test_limit_parameter_restricts_questions(self, mock_score):
+    def test_percentage_calculation_perfect(self, mock_score):
         mock_score.return_value = {
             "right_file": 1, "citation_present": 1, "answer_complete": 1,
             "no_hallucination": 1, "clear_for_level": 1, "total": 5, "notes": "OK"
         }
-        result = run_eval_suite(self._make_answer_fn(), "owner/repo", "intermediate", [], limit=3)
-        self.assertEqual(result["questions_run"], 3)
-        self.assertEqual(mock_score.call_count, 3)
-
-    @patch("evaluator.score_answer")
-    def test_percentage_calculation(self, mock_score):
-        mock_score.return_value = {
-            "right_file": 1, "citation_present": 1, "answer_complete": 1,
-            "no_hallucination": 1, "clear_for_level": 1, "total": 5, "notes": "OK"
-        }
-        result = run_eval_suite(self._make_answer_fn(), "owner/repo", "advanced", [], limit=4)
-        # 4 questions × 5 max score = 20 max; got 4×5=20
-        self.assertEqual(result["total_score"], 20)
-        self.assertEqual(result["max_score"], 20)
+        result = run_eval_suite(self._make_answer_fn(), "owner/repo", "advanced", [])
+        # 10 questions × 5 max score = 50 max; got 10×5=50 → 100%
+        self.assertEqual(result["total_score"], 50)
+        self.assertEqual(result["max_score"], 50)
         self.assertEqual(result["percentage"], 100.0)
 
     @patch("evaluator.score_answer")
     def test_partial_score_percentage(self, mock_score):
         mock_score.return_value = {
-            "right_file": 1, "citation_present": 0, "answer_complete": 1,
-            "no_hallucination": 1, "clear_for_level": 0, "total": 3, "notes": "Partial"
+            "right_file": 0, "citation_present": 0, "answer_complete": 1,
+            "no_hallucination": 1, "clear_for_level": 0, "total": 2, "notes": "Partial"
         }
-        result = run_eval_suite(self._make_answer_fn(), "owner/repo", "beginner", [], limit=2)
-        # 2 questions × 3 each = 6 total, 2×5 = 10 max
-        self.assertEqual(result["total_score"], 6)
-        self.assertEqual(result["percentage"], 60.0)
+        result = run_eval_suite(self._make_answer_fn(), "owner/repo", "beginner", [])
+        # 10 questions × 2 each = 20 total, 50 max → 40%
+        self.assertEqual(result["total_score"], 20)
+        self.assertEqual(result["percentage"], 40.0)
 
     @patch("evaluator.score_answer")
     def test_result_has_required_keys(self, mock_score):
         mock_score.return_value = {"total": 4, "notes": "OK"}
-        result = run_eval_suite(self._make_answer_fn(), "owner/repo", "beginner", [], limit=1)
-        for key in ("results", "total_score", "max_score", "percentage", "repo",
-                    "user_level", "questions_run"):
+        result = run_eval_suite(self._make_answer_fn(), "owner/repo", "beginner", [])
+        for key in ("results", "total_score", "max_score", "percentage", "repo", "user_level"):
             self.assertIn(key, result)
 
     @patch("evaluator.score_answer")
     def test_results_list_contains_per_question_data(self, mock_score):
         mock_score.return_value = {"total": 5, "notes": "Great"}
-        result = run_eval_suite(self._make_answer_fn(), "owner/repo", "intermediate", [], limit=2)
-        self.assertEqual(len(result["results"]), 2)
+        result = run_eval_suite(self._make_answer_fn(), "owner/repo", "intermediate", [])
+        self.assertEqual(len(result["results"]), 10)
         for item in result["results"]:
             self.assertIn("id", item)
             self.assertIn("question", item)
@@ -214,34 +203,23 @@ class TestRunEvalSuite(unittest.TestCase):
         def tracking_fn(q):
             calls.append(q)
             return "answer"
-        run_eval_suite(tracking_fn, "owner/repo", "advanced", [], limit=3)
-        self.assertEqual(len(calls), 3)
-
-    @patch("evaluator.score_answer")
-    def test_progress_callback_called(self, mock_score):
-        mock_score.return_value = {"total": 5, "notes": "OK"}
-        progress_calls = []
-        def on_progress(idx, total, question):
-            progress_calls.append((idx, total))
-        run_eval_suite(self._make_answer_fn(), "owner/repo", "beginner", [],
-                       limit=3, progress_callback=on_progress)
-        self.assertEqual(len(progress_calls), 3)
-        self.assertEqual(progress_calls[0], (1, 3))
-        self.assertEqual(progress_calls[2], (3, 3))
+        run_eval_suite(tracking_fn, "owner/repo", "advanced", [])
+        self.assertEqual(len(calls), 10)
 
     @patch("evaluator.score_answer")
     def test_answer_preview_truncated_to_200(self, mock_score):
         mock_score.return_value = {"total": 3, "notes": "OK"}
         long_answer = "A" * 500
-        result = run_eval_suite(lambda q: long_answer, "owner/repo", "beginner", [], limit=1)
-        self.assertLessEqual(len(result["results"][0]["answer_preview"]), 200)
+        result = run_eval_suite(lambda q: long_answer, "owner/repo", "beginner", [])
+        for item in result["results"]:
+            self.assertLessEqual(len(item["answer_preview"]), 200)
 
     @patch("evaluator.score_answer")
-    def test_zero_denominator_percentage_safe(self, mock_score):
-        mock_score.return_value = {"total": 0}
-        # limit=0 → questions = BENCHMARK_QUESTIONS[:0] = [] → max_score=0
-        result = run_eval_suite(self._make_answer_fn(), "owner/repo", "beginner", [], limit=0)
-        self.assertEqual(result["percentage"], 0)
+    def test_repo_and_user_level_in_result(self, mock_score):
+        mock_score.return_value = {"total": 5, "notes": "OK"}
+        result = run_eval_suite(self._make_answer_fn(), "myowner/myrepo", "advanced", [])
+        self.assertEqual(result["repo"], "myowner/myrepo")
+        self.assertEqual(result["user_level"], "advanced")
 
 
 if __name__ == "__main__":

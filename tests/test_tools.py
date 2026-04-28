@@ -26,7 +26,7 @@ class TestListFiles(unittest.TestCase):
     def tearDown(self):
         set_repo("", "")
 
-    @patch("tools.gh_get")
+    @patch("tools.requests.get")
     def test_returns_sorted_dirs_first(self, mock_get):
         mock_get.return_value = MagicMock(
             status_code=200,
@@ -42,7 +42,7 @@ class TestListFiles(unittest.TestCase):
         self.assertTrue(lines[0].startswith("📁"))
         self.assertTrue(lines[1].startswith("📄"))
 
-    @patch("tools.gh_get")
+    @patch("tools.requests.get")
     def test_uses_correct_api_url(self, mock_get):
         mock_get.return_value = MagicMock(status_code=200, json=lambda: [])
         list_files("src/utils")
@@ -51,14 +51,14 @@ class TestListFiles(unittest.TestCase):
         self.assertIn("testrepo", call_url)
         self.assertIn("src/utils", call_url)
 
-    @patch("tools.gh_get")
+    @patch("tools.requests.get")
     def test_returns_error_on_non_200(self, mock_get):
         mock_get.return_value = MagicMock(status_code=404)
         result = list_files("nonexistent")
         self.assertIn("Error", result)
         self.assertIn("404", result)
 
-    @patch("tools.gh_get")
+    @patch("tools.requests.get")
     def test_non_list_response_detected(self, mock_get):
         # When path points to a file, GitHub returns a dict
         mock_get.return_value = MagicMock(
@@ -68,13 +68,13 @@ class TestListFiles(unittest.TestCase):
         result = list_files("app.py")
         self.assertIn("is a file", result)
 
-    @patch("tools.gh_get")
+    @patch("tools.requests.get")
     def test_empty_directory(self, mock_get):
         mock_get.return_value = MagicMock(status_code=200, json=lambda: [])
         result = list_files("")
         self.assertEqual(result, "(empty directory)")
 
-    @patch("tools.gh_get")
+    @patch("tools.requests.get")
     def test_icons_in_output(self, mock_get):
         mock_get.return_value = MagicMock(
             status_code=200,
@@ -102,13 +102,13 @@ class TestReadFile(unittest.TestCase):
             json=lambda: {"type": "file", "content": encoded + "\n", "name": "test.py"},
         )
 
-    @patch("tools.gh_get")
+    @patch("tools.requests.get")
     def test_decodes_base64_content(self, mock_get):
         mock_get.return_value = self._make_b64_response("print('hello')")
         result = read_file("main.py")
         self.assertEqual(result.strip(), "print('hello')")
 
-    @patch("tools.gh_get")
+    @patch("tools.requests.get")
     def test_truncates_large_files(self, mock_get):
         large_content = "x" * 10000
         mock_get.return_value = self._make_b64_response(large_content)
@@ -116,21 +116,21 @@ class TestReadFile(unittest.TestCase):
         self.assertLessEqual(len(result), 8100)  # 8000 + "(truncated)" message
         self.assertIn("truncated", result)
 
-    @patch("tools.gh_get")
+    @patch("tools.requests.get")
     def test_does_not_truncate_small_files(self, mock_get):
         content = "small content"
         mock_get.return_value = self._make_b64_response(content)
         result = read_file("small.py")
         self.assertEqual(result, content)
 
-    @patch("tools.gh_get")
+    @patch("tools.requests.get")
     def test_returns_error_on_non_200(self, mock_get):
         mock_get.return_value = MagicMock(status_code=404)
         result = read_file("missing.py")
         self.assertIn("Error", result)
         self.assertIn("404", result)
 
-    @patch("tools.gh_get")
+    @patch("tools.requests.get")
     def test_returns_error_for_non_file_type(self, mock_get):
         mock_get.return_value = MagicMock(
             status_code=200,
@@ -139,7 +139,7 @@ class TestReadFile(unittest.TestCase):
         result = read_file("src")
         self.assertIn("not a file", result)
 
-    @patch("tools.gh_get")
+    @patch("tools.requests.get")
     def test_uses_correct_api_url(self, mock_get):
         mock_get.return_value = self._make_b64_response("content")
         read_file("path/to/file.py")
@@ -156,7 +156,7 @@ class TestSearchDocs(unittest.TestCase):
     def tearDown(self):
         set_repo("", "")
 
-    @patch("tools.gh_get")
+    @patch("tools.requests.get")
     def test_returns_matching_files(self, mock_get):
         mock_get.return_value = MagicMock(
             status_code=200,
@@ -173,7 +173,7 @@ class TestSearchDocs(unittest.TestCase):
         self.assertIn("src/app.py", result)
         self.assertIn("import streamlit as st", result)
 
-    @patch("tools.gh_get")
+    @patch("tools.requests.get")
     def test_empty_results(self, mock_get):
         mock_get.return_value = MagicMock(
             status_code=200,
@@ -182,14 +182,14 @@ class TestSearchDocs(unittest.TestCase):
         result = search_docs("nonexistent_symbol")
         self.assertIn("No results", result)
 
-    @patch("tools.gh_get")
+    @patch("tools.requests.get")
     def test_returns_error_on_non_200(self, mock_get):
         mock_get.return_value = MagicMock(status_code=403)
         result = search_docs("query")
         self.assertIn("Search error", result)
         self.assertIn("403", result)
 
-    @patch("tools.gh_get")
+    @patch("tools.requests.get")
     def test_handles_missing_text_matches(self, mock_get):
         mock_get.return_value = MagicMock(
             status_code=200,
@@ -200,7 +200,7 @@ class TestSearchDocs(unittest.TestCase):
         result = search_docs("config")
         self.assertIn("config.py", result)
 
-    @patch("tools.gh_get")
+    @patch("tools.requests.get")
     def test_query_includes_repo_scope(self, mock_get):
         mock_get.return_value = MagicMock(
             status_code=200,
