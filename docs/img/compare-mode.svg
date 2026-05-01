@@ -1,0 +1,112 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 700" font-family="-apple-system, Helvetica, Arial, sans-serif">
+  <!-- background -->
+  <rect width="1200" height="700" fill="#ffffff"/>
+
+  <!-- sidebar -->
+  <rect x="0" y="0" width="240" height="700" fill="#f6f8fa" stroke="#e1e4e8" stroke-width="1"/>
+  <text x="20" y="36" font-size="20" font-weight="700" fill="#1f2328">🔍 RepoLens</text>
+  <text x="20" y="56" font-size="11" fill="#57606a">Agentic repo onboarding assistant</text>
+
+  <text x="20" y="92" font-size="12" font-weight="600" fill="#1f2328">🎨 Theme</text>
+  <rect x="20" y="100" width="60" height="22" rx="4" fill="#fff" stroke="#d0d7de"/>
+  <text x="28" y="115" font-size="11" fill="#1f2328">🌞 Light</text>
+  <rect x="84" y="100" width="60" height="22" rx="4" fill="#fff" stroke="#d0d7de"/>
+  <text x="92" y="115" font-size="11" fill="#1f2328">🌙 Dark</text>
+  <rect x="148" y="100" width="68" height="22" rx="4" fill="#1f77b4" stroke="#1f77b4"/>
+  <text x="156" y="115" font-size="11" fill="#fff" font-weight="600">⚙️ System</text>
+
+  <line x1="20" y1="142" x2="220" y2="142" stroke="#e1e4e8"/>
+
+  <!-- compare toggle -->
+  <rect x="20" y="156" width="36" height="18" rx="9" fill="#1f77b4"/>
+  <circle cx="48" cy="165" r="7" fill="#fff"/>
+  <text x="64" y="170" font-size="12" font-weight="600" fill="#1f2328">🔀 Compare two repos</text>
+
+  <!-- repo A url -->
+  <text x="20" y="200" font-size="11" font-weight="600" fill="#1f2328">📂 Repo A URL</text>
+  <rect x="20" y="208" width="200" height="26" rx="4" fill="#fff" stroke="#d0d7de"/>
+  <text x="28" y="226" font-size="11" fill="#1f2328">github.com/tiangolo/fastapi</text>
+
+  <text x="20" y="256" font-size="11" font-weight="600" fill="#1f2328">📂 Repo B URL</text>
+  <rect x="20" y="264" width="200" height="26" rx="4" fill="#fff" stroke="#d0d7de"/>
+  <text x="28" y="282" font-size="11" fill="#1f2328">github.com/pallets/flask</text>
+
+  <text x="20" y="316" font-size="11" font-weight="600" fill="#1f2328">👤 Experience level</text>
+  <rect x="20" y="324" width="200" height="26" rx="4" fill="#fff" stroke="#d0d7de"/>
+  <text x="28" y="342" font-size="11" fill="#1f2328">intermediate ▾</text>
+
+  <text x="20" y="372" font-size="11" font-weight="600" fill="#1f2328">📝 Style</text>
+  <rect x="20" y="380" width="200" height="26" rx="4" fill="#fff" stroke="#d0d7de"/>
+  <text x="28" y="398" font-size="11" fill="#1f2328">balanced ▾</text>
+
+  <line x1="20" y1="424" x2="220" y2="424" stroke="#e1e4e8"/>
+  <text x="20" y="442" font-size="12" font-weight="600" fill="#1f2328">🚀 Quick Actions</text>
+  <rect x="20" y="450" width="200" height="24" rx="4" fill="#fff" stroke="#d0d7de"/>
+  <text x="28" y="467" font-size="11" fill="#1f2328">📋 Summarize architecture</text>
+  <rect x="20" y="478" width="200" height="24" rx="4" fill="#fff" stroke="#d0d7de"/>
+  <text x="28" y="495" font-size="11" fill="#1f2328">🔧 Setup steps</text>
+  <rect x="20" y="506" width="200" height="24" rx="4" fill="#fff" stroke="#d0d7de"/>
+  <text x="28" y="523" font-size="11" fill="#1f2328">📚 What to read first</text>
+
+  <line x1="20" y1="544" x2="220" y2="544" stroke="#e1e4e8"/>
+  <rect x="20" y="554" width="96" height="24" rx="4" fill="#fff" stroke="#d0d7de"/>
+  <text x="28" y="571" font-size="11" fill="#1f2328">🔄 Re-index A</text>
+  <rect x="124" y="554" width="96" height="24" rx="4" fill="#fff" stroke="#d0d7de"/>
+  <text x="132" y="571" font-size="11" fill="#1f2328">🔄 Re-index B</text>
+
+  <!-- main panel -->
+  <text x="270" y="40" font-size="22" font-weight="700" fill="#1f2328">🔍 RepoLens</text>
+  <text x="270" y="62" font-size="13" font-style="italic" fill="#57606a">Understand any GitHub repo in minutes — powered by AI agents</text>
+
+  <text x="270" y="100" font-size="13" font-weight="600" fill="#1f2328">Ask the same question to both repos:</text>
+  <rect x="270" y="110" width="900" height="32" rx="4" fill="#fff" stroke="#d0d7de"/>
+  <text x="282" y="131" font-size="13" fill="#1f2328">How does routing work?</text>
+
+  <!-- column A -->
+  <rect x="270" y="160" width="440" height="510" rx="6" fill="#f6f8fa" stroke="#d0d7de"/>
+  <text x="290" y="186" font-size="15" font-weight="700" fill="#1f2328">🅰️ tiangolo/fastapi</text>
+  <text x="290" y="216" font-size="13" font-weight="700" fill="#1f2328">📝 Draft Answer</text>
+  <text x="290" y="240" font-size="11" fill="#1f2328">FastAPI uses path operation decorators</text>
+  <text x="290" y="256" font-size="11" fill="#1f2328">like @app.get("/items/{id}") to map URL</text>
+  <text x="290" y="272" font-size="11" fill="#1f2328">paths to handler functions...</text>
+  <text x="290" y="288" font-size="11" fill="#57606a">— routing.py, dependencies.py</text>
+
+  <line x1="290" y1="306" x2="690" y2="306" stroke="#e1e4e8"/>
+
+  <text x="290" y="328" font-size="12" font-weight="600" fill="#1f2328">Approve this answer?</text>
+  <rect x="290" y="340" width="120" height="28" rx="4" fill="#1f77b4"/>
+  <text x="320" y="358" font-size="11" font-weight="600" fill="#fff">✅ Approve</text>
+  <rect x="418" y="340" width="140" height="28" rx="4" fill="#fff" stroke="#d0d7de"/>
+  <text x="430" y="358" font-size="11" fill="#1f2328">✏️ Request revision</text>
+  <rect x="566" y="340" width="120" height="28" rx="4" fill="#fff" stroke="#d0d7de"/>
+  <text x="596" y="358" font-size="11" fill="#1f2328">🗑️ Discard</text>
+
+  <line x1="290" y1="386" x2="690" y2="386" stroke="#e1e4e8"/>
+  <text x="290" y="406" font-size="12" font-weight="600" fill="#1f2328">📚 Evidence  ·  🔬 Details</text>
+  <rect x="290" y="424" width="194" height="28" rx="4" fill="#fff" stroke="#d0d7de"/>
+  <text x="316" y="442" font-size="11" fill="#1f2328">⬇️ Markdown</text>
+  <rect x="492" y="424" width="194" height="28" rx="4" fill="#fff" stroke="#d0d7de"/>
+  <text x="540" y="442" font-size="11" fill="#1f2328">⬇️ PDF</text>
+
+  <!-- column B -->
+  <rect x="730" y="160" width="440" height="510" rx="6" fill="#f6f8fa" stroke="#d0d7de"/>
+  <text x="750" y="186" font-size="15" font-weight="700" fill="#1f2328">🅱️ pallets/flask</text>
+  <text x="750" y="216" font-size="13" font-weight="700" fill="#1f2328">📝 Draft Answer</text>
+  <text x="750" y="240" font-size="11" fill="#1f2328">Flask uses @app.route("/path") decorators</text>
+  <text x="750" y="256" font-size="11" fill="#1f2328">to register URL rules with the application's</text>
+  <text x="750" y="272" font-size="11" fill="#1f2328">URL map (Werkzeug routing)...</text>
+  <text x="750" y="288" font-size="11" fill="#57606a">— app.py, routing.py</text>
+
+  <line x1="750" y1="306" x2="1150" y2="306" stroke="#e1e4e8"/>
+
+  <text x="750" y="328" font-size="12" font-weight="600" fill="#1f2328">What should change?</text>
+  <rect x="750" y="338" width="400" height="56" rx="4" fill="#fff" stroke="#d0d7de"/>
+  <text x="760" y="358" font-size="11" fill="#57606a">e.g. The setup section is too vague.</text>
+  <rect x="750" y="406" width="180" height="28" rx="4" fill="#1f77b4"/>
+  <text x="788" y="425" font-size="11" font-weight="600" fill="#fff">Apply revision</text>
+  <rect x="938" y="406" width="100" height="28" rx="4" fill="#fff" stroke="#d0d7de"/>
+  <text x="966" y="425" font-size="11" fill="#1f2328">Cancel</text>
+
+  <text x="750" y="466" font-size="11" font-style="italic" fill="#57606a">User can approve A while still revising B —</text>
+  <text x="750" y="482" font-size="11" font-style="italic" fill="#57606a">each slot has its own independent stage machine.</text>
+</svg>

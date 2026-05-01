@@ -476,6 +476,37 @@ Maximum score per question: 5. Maximum across the full suite: 50.
 
 ---
 
+### export.py — Markdown + PDF Reports
+
+`to_markdown(...)` and `to_pdf(...)` produce downloadable reports of any approved answer. PDF uses `fpdf2` with the bundled `assets/DejaVuSans.ttf` Unicode font (handles emoji + non-Latin scripts). Falls back to core Helvetica + latin-1 sanitization if the font isn't found.
+
+---
+
+### theme.py — Light / Dark / System Theme
+
+Streamlit's `config.toml` `base` is loaded once at startup, so a runtime toggle requires CSS injection on each rerun. `apply_theme()` reads `st.session_state["theme_choice"]`, picks `assets/dark_theme.css` or `assets/light_theme.css`, and injects via `st.markdown(unsafe_allow_html=True)`. System mode is a no-op (Streamlit follows OS preference automatically). Choice persists across sessions via the SQLite `prefs` table (`memory.get_pref` / `memory.set_pref`).
+
+---
+
+### compare.py — Multi-Repo State Namespacing
+
+When the user enables compare-mode, two pipelines run side-by-side. Each needs its own session-state namespace so the stage machines (`stage_a`, `draft_a`, ...) don't collide. `compare.py` is a pure-function module providing the keyer pattern:
+
+- **`slot_key(base, slot)`**: returns `base` if slot is None, else `f"{base}_{slot}"`.
+- **`ss_get / ss_set / ss_pop`**: thin wrappers over `dict.get/set/pop` using `slot_key`.
+- **`reset_slot(state, slot)`**: clears all `PIPELINE_KEYS` for the given slot.
+- **`reset_all_slots(state)`**: clears canonical + slot-a + slot-b in one call (used by the "🆕 New question" button).
+
+`app.py` wraps the entire stage machine in a single `run_pipeline_for_slot(slot, ...)` function. Single-repo mode passes `slot=None` (canonical keys preserved → backwards compatible). Compare mode invokes it twice inside `st.columns(2)`, once per slot.
+
+---
+
+### graph.py — LangGraph StateGraph
+
+The pipeline is wired as a real `StateGraph`. Two compiled subgraphs split around the streaming synthesizer (`pre_synth_graph` runs `index → plan → research`; `post_synth_graph` runs `review → revise?`). Streaming synthesis (`synthesize_stream`) lives in `app.py` between the two subgraph invocations, letting tokens render progressively via `st.write_stream`. The conditional `revise → review` edge is capped at 1 iteration when quality score < 6.
+
+---
+
 ## Multi-Agent Design
 
 RepoLens uses four specialized agents, each with a distinct role, system prompt, and output format. They are not running concurrently — they execute in pipeline order, each consuming the output of the previous.

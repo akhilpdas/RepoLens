@@ -128,6 +128,10 @@ RepoLens/
 ├── tracer.py              # Observability (timing + events)
 ├── evaluator.py           # 10-question benchmark suite
 ├── export.py              # MD + PDF export (fpdf2 + DejaVuSans)
+├── theme.py               # Light / Dark / System theme CSS injection
+├── compare.py             # Multi-repo state-namespacing helpers
+├── assets/                # Theme CSS + DejaVuSans.ttf
+├── tests/                 # 270-test unit + integration suite
 ├── requirements.txt       # Dependencies
 ├── .env                   # Your API keys (private, gitignored)
 ├── .env.example           # Template

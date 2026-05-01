@@ -134,13 +134,17 @@ test: add benchmark for private repo handling
 - [x] Export answers as Markdown/PDF (fpdf2 + DejaVuSans)
 - [x] Evaluator suite wiring (3-Q subset or full 10-Q)
 - [x] Streamlit Cloud deploy config
+- [x] Comprehensive unit + integration test suite (270 tests across 12 files)
+- [x] Dark mode theme (light / dark / system, persisted across sessions)
+- [x] Multi-repo side-by-side comparison (independent approval gates per slot)
 
 ### Future (v4+)
-- [ ] Unit tests for core functions (planner, reviewer, retriever)
-- [ ] Multi-repo side-by-side comparison
 - [ ] GitLab / Bitbucket support (beyond GitHub)
-- [ ] Dark mode theme
 - [ ] Browser extension for inline documentation
+- [ ] Compare summary — automatic diff/contrast synthesis between two repos
+- [ ] Memory + Trace tabs accessible from compare mode
+- [ ] Mobile-responsive compare layout
+- [ ] CI/CD integration with GitHub Actions (run pytest on every PR)
 
 ---
 

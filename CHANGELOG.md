@@ -13,6 +13,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.2.1] - 2026-05-01
+
+### Added
+- README "Compare Two Repos (multi-repo mode)" usage section with step-by-step instructions.
+- README "Theme (light / dark / system)" usage section.
+- `docs/img/compare-mode.svg` — inline diagram of the compare-mode layout (renders directly in GitHub Markdown).
+- `tests/test_compare_integration.py` — 12 integration tests covering: independent slot progression, approve-A-while-revising-B, discard-one-keep-the-other, "🆕 New question" reset semantics, cross-slot key collision check, interleaved-rerun execution model.
+
+### Changed
+- `ARCHITECTURE_GUIDE.md` — file map updated with `graph.py`, `gh.py`, `theme.py`, `compare.py`, `assets/`, `tests/`. Added "Code Components" subsections for `theme.py` and `compare.py`.
+- `DETAILED_EXPLANATION.md` — added module breakdowns for `export.py`, `theme.py`, `compare.py`, `graph.py`.
+- `BEGINNER_GUIDE.md` — file map extended with new modules and one-line descriptions.
+- `CONTRIBUTING.md` — Multi-repo, Dark mode, and Tests moved from "Future" to "Shipped"; future list refreshed (compare summary, mobile layout, CI/CD).
+- `DOCS.md` — Source Files table updated; version bumped to 3.2.0.
+- `QUICKSTART.md`, `SETUP.md` — project trees include `theme.py`, `compare.py`, `assets/`, `tests/`, `docs/img/`.
+- `.claude/workspace.md` — fully refreshed (Groq + LangGraph + new features + 270 tests).
+- README features bullet refreshed to mention 🔀 compare and 🎨 dark mode; roadmap updated.
+
+### Tests
+- Total suite now **270 passing** (was 258).
+
+---
+
 ## [3.2.0] - 2026-04-28
 
 ### Added

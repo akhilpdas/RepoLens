@@ -101,16 +101,23 @@ Every factual claim in the answer is backed by a cited file from the actual repo
 
 ```
 RepoLens/
-├── app.py           — Main Streamlit app; orchestrates the 5-phase pipeline
+├── app.py           — Main Streamlit app; UI + HITL stage machine + slot dispatch
+├── graph.py         — LangGraph StateGraph; pre/post-synth subgraphs + streaming synthesizer
+├── gh.py            — Central GitHub API helper (auth-aware request wrapper)
 ├── tools.py         — 3 callable tools for the Researcher (list_files, read_file, search_docs)
 ├── planner.py       — Planner LLM: converts a question into a 3–5 step JSON plan
-├── retriever.py     — RAG module: indexes repo files into ChromaDB, serves context chunks
+├── retriever.py     — RAG module: persistent ChromaDB (24h TTL) indexing + retrieval
 ├── reviewer.py      — Reviewer LLM: quality-checks answers, returns verdict + score 1–10
-├── memory.py        — SQLite-backed persistent memory (user profile + question history)
+├── memory.py        — SQLite-backed persistent memory (profile + history + prefs)
 ├── state.py         — Dataclasses: PlanStep, Plan, SessionState; StepStatus enum
 ├── tracer.py        — Observability: TraceEvent, RunTrace, Timer context manager
 ├── evaluator.py     — 10 benchmark questions scored on 5 criteria for offline evals
-└── requirements.txt — streamlit, groq, chromadb, langgraph, requests, python-dotenv
+├── export.py        — Markdown + PDF report exporters (fpdf2 + DejaVuSans)
+├── theme.py         — Light / Dark / System theme runtime CSS injection
+├── compare.py       — Multi-repo state-namespacing helpers (slot a / b)
+├── assets/          — Theme CSS files + DejaVuSans Unicode font
+├── tests/           — 270 unit + integration tests across 12 files
+└── requirements.txt — streamlit, groq, chromadb, langgraph, requests, fpdf2, python-dotenv
 ```
 
 ---
@@ -573,6 +580,49 @@ BENCHMARK_QUESTIONS = [
 # run_eval_suite(answer_fn, repo_name, user_level, indexed_files)
 # → Returns per-question scores and an aggregate percentage
 ```
+
+---
+
+### `theme.py` — Runtime Theme System
+
+Streamlit's `config.toml` `base` is loaded once at server startup and is **not** runtime-switchable. `theme.py` provides a sidebar toggle (Light / Dark / System) by injecting CSS overrides on every rerun.
+
+```python
+THEME_CHOICES = ["🌞 Light", "🌙 Dark", "⚙️ System"]
+THEME_CSS = {
+    "🌙 Dark": Path("assets/dark_theme.css"),
+    "🌞 Light": Path("assets/light_theme.css"),
+}
+
+def apply_theme():
+    """Reads st.session_state['theme_choice'], injects matching CSS.
+    System mode = no-op (falls through to OS preference + Streamlit defaults).
+    Missing CSS file = graceful no-op.
+    """
+```
+
+Choice persists across sessions via SQLite — `memory.get_pref('theme')` / `memory.set_pref('theme', value)` read/write a `prefs (key, value, updated_at)` table.
+
+---
+
+### `compare.py` — Multi-Repo State Namespacing
+
+Compare-mode runs two pipelines side-by-side. Each needs its own session-state namespace so the stage machines (`stage_a`, `draft_a`, ...) don't collide. `compare.py` is a pure-function module — no Streamlit imports — providing the keyer pattern:
+
+```python
+PIPELINE_KEYS = ("stage", "active_question", "draft", "final_state",
+                 "retriever", "evidence_chunks", "trace", "last_review",
+                 "force_reindex", "session")
+SLOTS = ("a", "b")
+
+slot_key("stage")        # → "stage"      (canonical, single-repo mode)
+slot_key("stage", "a")   # → "stage_a"    (compare mode column A)
+ss_get(state, "draft", slot="b")   # state.get("draft_b")
+reset_slot(state, slot="a")        # remove every "{base}_a"
+reset_all_slots(state)             # clear canonical + a + b in one call
+```
+
+`app.py` wraps the entire stage machine in `run_pipeline_for_slot(slot, ...)` so single-repo (`slot=None`) and compare (`slot="a"|"b"`) share one code path.
 
 ---
 

@@ -162,18 +162,27 @@ streamlit run app.py --server.port 8502
 
 ```
 RepoLens/
-├── app.py              # Main app — UI + 5-phase pipeline
+├── app.py              # Main app — UI + HITL stage machine + slot dispatch
+├── graph.py            # LangGraph StateGraph; pre/post-synth subgraphs
+├── gh.py               # GitHub auth-aware HTTP helper
 ├── tools.py            # 3 tools: list_files, read_file, search_docs
 ├── planner.py          # Planner agent — investigation plans
-├── retriever.py        # ChromaDB RAG — indexing + retrieval
-├── reviewer.py         # Reviewer agent — quality checks
-├── memory.py           # SQLite memory — profile + history
+├── retriever.py        # Persistent ChromaDB RAG — indexing + retrieval
+├── reviewer.py         # Reviewer agent — quality checks + auto-revision
+├── memory.py           # SQLite — profile + history + prefs
 ├── state.py            # Dataclasses (Plan, PlanStep, etc.)
 ├── tracer.py           # Observability (timing + events)
-├── evaluator.py        # Benchmark evaluation suite
+├── evaluator.py        # Benchmark evaluation suite (10 Q × 5 criteria)
+├── export.py           # Markdown + PDF answer exports
+├── theme.py            # Light / Dark / System theme CSS injection
+├── compare.py          # Multi-repo state-namespacing helpers
+├── assets/             # Theme CSS files + DejaVuSans.ttf
+├── tests/              # 270-test unit + integration suite
+├── docs/img/           # Diagrams (e.g. compare-mode.svg)
 ├── requirements.txt    # Dependencies
 ├── .env                # Your API key (private)
 ├── .env.example        # Template
+├── .streamlit/         # Streamlit Cloud config + secrets template
 └── .gitignore          # Git ignore rules
 ```
 

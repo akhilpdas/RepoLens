@@ -176,11 +176,15 @@ RepoLens/
 ├── planner.py          # Planner agent — creates investigation plans
 ├── retriever.py        # RAG module — persistent ChromaDB indexing + retrieval
 ├── reviewer.py         # Reviewer agent — quality checks + revision
-├── memory.py           # SQLite-backed persistent user memory
+├── memory.py           # SQLite-backed persistent user memory + prefs
 ├── state.py            # Structured state: Plan, PlanStep, SessionState
 ├── tracer.py           # Lightweight observability — timing + event log
 ├── evaluator.py        # 10-question benchmark evaluation suite
 ├── export.py           # Markdown + PDF answer export (fpdf2 + DejaVuSans)
+├── theme.py            # Light / Dark / System theme runtime CSS injection
+├── compare.py          # Multi-repo state-namespacing helpers (slot a / b)
+├── assets/             # Theme CSS files + DejaVuSans.ttf
+├── tests/              # 258-test unit + integration suite
 ├── requirements.txt    # Python dependencies
 ├── .env.example        # Environment variable template
 ├── .streamlit/         # Streamlit Cloud config + secrets template
@@ -264,12 +268,52 @@ For any repo, RepoLens produces answers like:
 
 | Area | Content |
 |------|---------|
-| **Sidebar** | Repo URL, experience level, explanation style, preset buttons, current plan |
-| **Main Panel** | Quality badge + final answer |
+| **Sidebar** | 🎨 Theme · 🔀 Compare toggle · Repo URL(s) · level · style · preset buttons · current plan · re-index · eval suite |
+| **Main Panel** | Quality badge + final answer (single-repo) or two side-by-side columns (compare mode) |
 | **📚 Evidence tab** | Retrieved chunks + indexed files list |
-| **🧠 Memory tab** | User profile + question history |
-| **📊 Trace tab** | Timing metrics, tool call counts, event log |
+| **🧠 Memory tab** | User profile + question history (single-repo only) |
+| **📊 Trace tab** | Timing metrics, tool call counts, event log (single-repo only) |
 | **🔬 Details tab** | Investigation plan, step findings, tool calls, review JSON |
+| **📈 Eval tab** | Benchmark scoring suite (single-repo only) |
+
+---
+
+## Compare Two Repos (multi-repo mode)
+
+Quickly compare onboarding answers across two codebases — e.g. "fastapi vs flask: how does routing work?" — without leaving the app.
+
+![Compare mode layout — 2-column side-by-side with independent approval gates](docs/img/compare-mode.svg)
+
+**How to use:**
+
+1. Toggle **🔀 Compare two repos** in the sidebar.
+2. Paste **Repo A URL** and **Repo B URL**.
+3. Pick a question from the presets (or type your own) — the same question runs against both repos.
+4. Watch both pipelines stream answers side-by-side.
+5. Approve, revise, or discard each answer **independently** — you can approve A while still revising B.
+6. Download per-repo Markdown / PDF reports from each column.
+
+**What's different in compare mode:**
+
+- Each repo gets its own session-state namespace (`stage_a`, `stage_b`, `draft_a`, `draft_b`, ...) so the stage machines never collide.
+- ChromaDB caches are already keyed by `{owner}_{repo}` — both repos cache cleanly.
+- Slimmer per-column tabs (Evidence + Details only); the cross-cutting Memory, Trace, and Eval tabs render only in single-repo mode.
+- Eval suite is disabled (toggle compare off to run it).
+- Re-index splits into per-slot **🔄 Re-index A** / **🔄 Re-index B** buttons.
+
+> **Tip:** Both pipelines run sequentially within the same browser session — no extra cost. Together they fit comfortably in Groq's free tier on small/medium repos.
+
+---
+
+## Theme (light / dark / system)
+
+Pick the theme from the sidebar **🎨 Theme** radio:
+
+- **🌞 Light** — locks light mode regardless of OS
+- **🌙 Dark** — locks dark mode regardless of OS
+- **⚙️ System** *(default)* — follows your OS preference
+
+Selection persists across sessions in SQLite (`prefs` table). CSS overrides live in `assets/dark_theme.css` and `assets/light_theme.css`.
 
 ---
 
@@ -293,7 +337,7 @@ For any repo, RepoLens produces answers like:
 - **Groq free-tier rate limits** — per-minute caps; large repos with full eval suite may hit them
 - **Selective indexing** — only key files are indexed, not the full codebase
 - **Ephemeral cache on Streamlit Cloud** — disks reset on container restart (re-index on cold start)
-- **Single repo per session** — multi-repo side-by-side comparison is on the roadmap
+- **Mobile layout** — compare mode is desktop-optimized; mobile view is single-column
 
 ---
 
@@ -306,7 +350,10 @@ For any repo, RepoLens produces answers like:
 - [x] Export answers as Markdown/PDF
 - [x] Human-in-the-loop approval step
 - [x] Deploy to Streamlit Cloud
-- [ ] Multi-repo side-by-side comparison
+- [x] Multi-repo side-by-side comparison
+- [x] Dark mode theme toggle (light / dark / system)
+- [ ] GitLab / Bitbucket support
+- [ ] Browser extension for inline GitHub documentation
 
 ---
 

@@ -652,6 +652,23 @@ RepoLens/
 +-- evaluator.py        (Evaluation utilities — used for testing and scoring
 |                       the pipeline's performance.)
 |
++-- export.py           Markdown + PDF answer exporters (fpdf2 + DejaVuSans).
+|
++-- graph.py            LangGraph StateGraph — orchestrates pre/post-synth
+|                       subgraphs and the streaming synthesizer.
+|
++-- gh.py               Central GitHub HTTP helper. Adds the GITHUB_TOKEN
+|                       header automatically when set (private repos + 5k req/hr).
+|
++-- theme.py            Light / Dark / System theme toggle. Injects CSS overrides
+|                       on each rerun. Choice persists via SQLite prefs table.
+|
++-- compare.py          Multi-repo comparison helpers. Provides slot_key/ss_get/
+|                       ss_set so two pipelines can run side-by-side without
+|                       state collision.
+|
++-- assets/             dark_theme.css, light_theme.css, DejaVuSans.ttf font.
++-- tests/              270 unit + integration tests across 12 files.
 +-- requirements.txt    All Python libraries required to run the app.
 +-- .env                Your secret API key (GROQ_API_KEY). Never commit this.
 +-- repolens_memory.db  SQLite database file (auto-created on first run).

@@ -38,15 +38,21 @@ Welcome to RepoLens! This file helps you navigate all the documentation.
 
 | File | Purpose |
 |------|---------|
-| `app.py` | Main Streamlit app — UI + 5-phase pipeline |
+| `app.py` | Main Streamlit app — UI + HITL stage machine + slot dispatch |
+| `graph.py` | LangGraph StateGraph — pre/post-synth subgraphs + streaming synth |
+| `gh.py` | GitHub auth-aware HTTP helper (5k req/hr with token, private repos) |
 | `tools.py` | 3 tools: list_files, read_file, search_docs |
 | `planner.py` | Planner agent — creates investigation plans |
-| `retriever.py` | ChromaDB RAG — indexing + retrieval |
+| `retriever.py` | Persistent ChromaDB RAG (24h TTL) — indexing + retrieval |
 | `reviewer.py` | Reviewer agent — quality checks + auto-revision |
-| `memory.py` | SQLite memory — user profile + question history |
+| `memory.py` | SQLite memory — user profile + question history + prefs |
 | `state.py` | Dataclasses: Plan, PlanStep, SessionState |
 | `tracer.py` | Observability: timing, events, metrics |
 | `evaluator.py` | 10-question benchmark evaluation suite |
+| `export.py` | Markdown + PDF answer export (fpdf2 + DejaVuSans) |
+| `theme.py` | Light / Dark / System theme runtime CSS injection |
+| `compare.py` | Multi-repo session-state namespacing helpers (slot a/b) |
+| `tests/` | 270 unit + integration tests across 12 files |
 
 ### Configuration
 
@@ -98,5 +104,5 @@ Welcome to RepoLens! This file helps you navigate all the documentation.
 
 ---
 
-**Last Updated**: 2026-04-14
-**Version**: 2.0.0
+**Last Updated**: 2026-05-01
+**Version**: 3.2.0
