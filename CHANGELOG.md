@@ -8,7 +8,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Planned
-- Multi-repo side-by-side comparison
+- GitLab / Bitbucket support
+- Browser extension for inline GitHub documentation
+
+---
+
+## [3.2.0] - 2026-04-28
+
+### Added
+
+#### Multi-repo side-by-side comparison (`compare.py`)
+- Sidebar toggle "🔀 Compare two repos" gates a 2-column layout.
+- Each repo gets its own session-state namespace via `slot="a" | "b"` suffixes; canonical keys preserved for single-repo mode (zero regression).
+- New `compare.py` keyer module: `slot_key`, `ss_get`, `ss_set`, `ss_pop`, `reset_slot`, `reset_all_slots`, `slot_label`, `widget_key`. Pure functions, no Streamlit dependency.
+- `app.py` refactored: stage machine wrapped in `run_pipeline_for_slot(slot, ...)` so single and compare modes share one code path.
+- Each slot has independent stage progression — approve A while still revising B (or vice versa).
+- Shared question input above columns: both repos answer the same question.
+- Per-slot exports: 4 download buttons in compare mode (MD-A, PDF-A, MD-B, PDF-B), filenames already namespaced by `{owner}_{repo}`.
+- Slimmer tabs in compare columns (Evidence + Details only); Memory, Trace, and Eval tabs only render in single-repo mode.
+- Eval suite disabled in compare mode (sidebar shows hint).
+- Per-slot "🔄 Re-index A" / "🔄 Re-index B" buttons replace the single Re-index button.
+- "🆕 New question" now clears all slots cleanly via `reset_all_slots`.
+
+#### Tests
+- 21 new unit tests in `tests/test_compare.py` covering all keyer helpers.
+- Total suite now 258 passing.
+
+### Changed
+- `app.py` substantially restructured but UI for single-repo flow is unchanged.
 
 ---
 

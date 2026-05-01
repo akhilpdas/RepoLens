@@ -117,6 +117,8 @@ All phases are wired together by **LangGraph** in `graph.py` (`StateGraph` with 
 - 📊 **Observability** — Full trace with per-phase timing, tool call counts, quality scores
 - 📈 **Evaluation** — Benchmark suite (3-question quick run or full 10) with 5-criteria scoring
 - 📤 **Export** — Download answers as Markdown or PDF (Unicode-safe via DejaVuSans)
+- 🔀 **Multi-repo compare** — Side-by-side pipeline runs for two repos with independent approval gates
+- 🎨 **Dark mode** — Light / Dark / System theme toggle, persisted across sessions
 - 🎯 **Experience-level tailoring** — Beginner/intermediate/advanced answers
 - 📝 **Explanation styles** — Concise, balanced, or detailed
 - 💬 **Interactive Q&A** — Quick-pick buttons + custom questions
