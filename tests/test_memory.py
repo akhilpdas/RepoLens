@@ -13,6 +13,8 @@ from memory import (
     get_history,
     get_repo_history,
     get_memory_context,
+    get_pref,
+    set_pref,
 )
 
 
@@ -204,6 +206,37 @@ class TestGetMemoryContext(TestMemoryBase):
         update_profile(last_repo="owner/repo")
         ctx = get_memory_context("owner/repo", "intermediate")
         self.assertNotIn("Previously explored", ctx)
+
+
+class TestPrefs(TestMemoryBase):
+    def test_get_pref_returns_default_when_missing(self):
+        self.assertEqual(get_pref("theme", default="⚙️ System"), "⚙️ System")
+
+    def test_get_pref_returns_empty_default_by_default(self):
+        self.assertEqual(get_pref("nonexistent"), "")
+
+    def test_set_pref_then_get_pref_roundtrip(self):
+        set_pref("theme", "🌙 Dark")
+        self.assertEqual(get_pref("theme"), "🌙 Dark")
+
+    def test_set_pref_overwrites_existing_value(self):
+        set_pref("theme", "🌞 Light")
+        set_pref("theme", "🌙 Dark")
+        self.assertEqual(get_pref("theme"), "🌙 Dark")
+
+    def test_set_pref_supports_unicode(self):
+        set_pref("greeting", "héllo 🌟 世界")
+        self.assertEqual(get_pref("greeting"), "héllo 🌟 世界")
+
+    def test_multiple_prefs_independent(self):
+        set_pref("theme", "🌙 Dark")
+        set_pref("font_size", "14")
+        self.assertEqual(get_pref("theme"), "🌙 Dark")
+        self.assertEqual(get_pref("font_size"), "14")
+
+    def test_get_pref_default_used_only_when_missing(self):
+        set_pref("theme", "🌙 Dark")
+        self.assertEqual(get_pref("theme", default="🌞 Light"), "🌙 Dark")
 
 
 if __name__ == "__main__":

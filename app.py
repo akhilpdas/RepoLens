@@ -7,6 +7,7 @@ UI: Sidebar (config) + Main panel (answer) + Tabs (evidence, memory, traces).
 """
 
 import os
+from pathlib import Path
 import streamlit as st
 from dotenv import load_dotenv
 
@@ -15,7 +16,7 @@ from gh import gh_get
 from state import SessionState, StepStatus
 from memory import (
     get_profile, update_profile, add_question,
-    get_history,
+    get_history, get_pref, set_pref,
 )
 from tracer import RunTrace, Timer
 from graph import (
@@ -43,6 +44,17 @@ for _key in ("GROQ_API_KEY", "GITHUB_TOKEN"):
 # Page config
 # ---------------------------------------------------------------------------
 st.set_page_config(page_title="RepoLens", page_icon="🔍", layout="wide")
+
+# ---------------------------------------------------------------------------
+# Theme (light / dark / system) — runtime CSS injection
+# ---------------------------------------------------------------------------
+from theme import THEME_CHOICES, DEFAULT_THEME, apply_theme, resolve_choice
+
+# Hydrate theme_choice from persisted prefs on first run
+if "theme_choice" not in st.session_state:
+    st.session_state["theme_choice"] = resolve_choice(get_pref("theme", default=DEFAULT_THEME))
+
+apply_theme()
 
 # --- Initialize session state ---
 _DEFAULTS = {
@@ -81,6 +93,23 @@ def _reset_pipeline_state():
 with st.sidebar:
     st.title("🔍 RepoLens")
     st.caption("Agentic repo onboarding assistant")
+
+    _theme_prev = st.session_state.get("theme_choice", "⚙️ System")
+    _theme_idx = THEME_CHOICES.index(_theme_prev) if _theme_prev in THEME_CHOICES else 2
+    theme_choice = st.radio(
+        "🎨 Theme",
+        THEME_CHOICES,
+        index=_theme_idx,
+        horizontal=True,
+        key="theme_choice",
+    )
+    if theme_choice != _theme_prev:
+        try:
+            set_pref("theme", theme_choice)
+        except Exception:
+            pass
+        st.rerun()
+
     st.markdown("---")
 
     repo_url = st.text_input(

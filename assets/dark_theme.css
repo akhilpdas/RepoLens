@@ -1,0 +1,131 @@
+/* RepoLens — Dark theme overrides */
+
+.stApp {
+    background-color: #0e1117 !important;
+    color: #fafafa !important;
+}
+
+section[data-testid="stSidebar"] {
+    background-color: #1a1d24 !important;
+    border-right: 1px solid #2a2e36 !important;
+}
+
+section[data-testid="stSidebar"] *,
+.stMarkdown,
+.stMarkdown *,
+.stText,
+.stCaption,
+label,
+p, h1, h2, h3, h4, h5, h6,
+[data-testid="stMarkdownContainer"] * {
+    color: #fafafa !important;
+}
+
+[data-testid="stExpander"] {
+    background-color: #1a1d24 !important;
+    border: 1px solid #2a2e36 !important;
+    border-radius: 6px !important;
+}
+
+[data-testid="stExpander"] details > summary {
+    background-color: #1a1d24 !important;
+    color: #fafafa !important;
+}
+
+[data-testid="stTabs"] [data-baseweb="tab-list"] {
+    background-color: transparent !important;
+    border-bottom: 1px solid #2a2e36 !important;
+}
+
+[data-testid="stTabs"] button {
+    color: #b0b6c0 !important;
+    background-color: transparent !important;
+}
+
+[data-testid="stTabs"] button[aria-selected="true"] {
+    color: #4a9eff !important;
+    border-bottom-color: #4a9eff !important;
+}
+
+[data-testid="stStatusWidget"],
+[data-testid="stStatus"] {
+    background-color: #1a1d24 !important;
+    color: #fafafa !important;
+}
+
+code, pre, kbd, samp {
+    background-color: #161a22 !important;
+    color: #d4d4d4 !important;
+    border-radius: 4px !important;
+}
+
+pre code {
+    background-color: transparent !important;
+}
+
+.stButton > button {
+    background-color: #2a3140 !important;
+    color: #fafafa !important;
+    border: 1px solid #3a414f !important;
+}
+
+.stButton > button:hover {
+    background-color: #3a414f !important;
+    border-color: #4a9eff !important;
+}
+
+.stButton > button[kind="primary"] {
+    background-color: #4a9eff !important;
+    color: #ffffff !important;
+    border-color: #4a9eff !important;
+}
+
+.stTextInput > div > div > input,
+.stTextArea > div > div > textarea,
+.stSelectbox > div > div,
+.stRadio > div {
+    background-color: #1a1d24 !important;
+    color: #fafafa !important;
+    border-color: #2a2e36 !important;
+}
+
+.stTextInput > div > div > input::placeholder,
+.stTextArea > div > div > textarea::placeholder {
+    color: #6c7280 !important;
+}
+
+[data-testid="stMetricValue"],
+[data-testid="stMetricLabel"],
+[data-testid="stMetricDelta"] {
+    color: #fafafa !important;
+}
+
+[data-testid="stAlert"] {
+    background-color: #1a1d24 !important;
+    border-left: 4px solid #4a9eff !important;
+    color: #fafafa !important;
+}
+
+a, a:visited {
+    color: #4a9eff !important;
+}
+
+hr {
+    border-color: #2a2e36 !important;
+}
+
+[data-testid="stDataFrame"], .dataframe {
+    background-color: #1a1d24 !important;
+    color: #fafafa !important;
+}
+
+[data-testid="stDataFrame"] table th {
+    background-color: #2a2e36 !important;
+    color: #fafafa !important;
+}
+
+[data-testid="stDataFrame"] table td {
+    background-color: #1a1d24 !important;
+    color: #d4d4d4 !important;
+    border-color: #2a2e36 !important;
+}

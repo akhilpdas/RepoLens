@@ -12,6 +12,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.1.0] - 2026-04-28
+
+### Added
+
+#### Dark mode theme (`theme.py`, `assets/`)
+- Sidebar radio with three options: 🌞 Light, 🌙 Dark, ⚙️ System.
+- New `theme.py` module — `apply_theme()` injects CSS overrides on each Streamlit rerun (System mode = no-op, falls through to OS preference).
+- `assets/dark_theme.css` and `assets/light_theme.css` — full coverage (sidebar, tabs, expanders, code blocks, buttons, inputs, alerts, dataframes, metrics).
+- Choice persists across sessions via new `prefs` table in SQLite (`memory.get_pref` / `memory.set_pref`).
+
+#### Tests
+- 26 new unit tests: `tests/test_theme.py` (constants, `resolve_choice`, `get_css_for`, `apply_theme` injection logic) + 7 prefs tests added to `tests/test_memory.py`.
+- Total suite now 237 passing.
+
+### Changed
+- `.streamlit/config.toml` — removed hardcoded `base = "light"` so System mode follows OS preference.
+- `memory.py` — added `prefs` table to `_get_connection()` schema, exposed `get_pref` / `set_pref` helpers.
+
+---
+
 ## [3.0.0] - 2026-04-25
 
 Major release: completes the originally planned scope. Pipeline is now LangGraph-orchestrated with disk-backed RAG, streaming answers, human approval, and exportable reports.

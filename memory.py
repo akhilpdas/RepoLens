@@ -39,6 +39,13 @@ def _get_connection() -> sqlite3.Connection:
             asked_at TEXT NOT NULL
         )
     """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS prefs (
+            key TEXT PRIMARY KEY,
+            value TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        )
+    """)
     # Ensure profile row exists
     conn.execute("""
         INSERT OR IGNORE INTO user_profile (id, skill_level, explanation_style, last_repo, updated_at)
@@ -149,6 +156,29 @@ def get_repo_history(repo: str, limit: int = 5) -> list[dict]:
         }
         for r in rows
     ]
+
+
+# ---------------------------------------------------------------------------
+# Generic Preferences (theme, etc.)
+# ---------------------------------------------------------------------------
+def get_pref(key: str, default: str = "") -> str:
+    """Get a stored preference value, or return default if missing."""
+    conn = _get_connection()
+    row = conn.execute("SELECT value FROM prefs WHERE key=?", (key,)).fetchone()
+    conn.close()
+    return row[0] if row else default
+
+
+def set_pref(key: str, value: str) -> None:
+    """Upsert a preference value."""
+    conn = _get_connection()
+    conn.execute(
+        """INSERT INTO prefs (key, value, updated_at) VALUES (?, ?, ?)
+           ON CONFLICT(key) DO UPDATE SET value=excluded.value, updated_at=excluded.updated_at""",
+        (key, value, datetime.now().isoformat()),
+    )
+    conn.commit()
+    conn.close()
 
 
 def get_memory_context(repo: str, user_level: str) -> str:

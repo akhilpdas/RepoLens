@@ -1,0 +1,76 @@
+/* RepoLens — Light theme overrides (locks light regardless of OS preference) */
+
+.stApp {
+    background-color: #ffffff !important;
+    color: #1f1f1f !important;
+}
+
+section[data-testid="stSidebar"] {
+    background-color: #f6f8fa !important;
+    border-right: 1px solid #e1e4e8 !important;
+}
+
+section[data-testid="stSidebar"] *,
+.stMarkdown,
+.stMarkdown *,
+.stText,
+.stCaption,
+label,
+p, h1, h2, h3, h4, h5, h6,
+[data-testid="stMarkdownContainer"] * {
+    color: #1f1f1f !important;
+}
+
+[data-testid="stExpander"] {
+    background-color: #f6f8fa !important;
+    border: 1px solid #e1e4e8 !important;
+    border-radius: 6px !important;
+}
+
+[data-testid="stTabs"] [data-baseweb="tab-list"] {
+    border-bottom: 1px solid #e1e4e8 !important;
+}
+
+[data-testid="stTabs"] button {
+    color: #57606a !important;
+}
+
+[data-testid="stTabs"] button[aria-selected="true"] {
+    color: #1f77b4 !important;
+    border-bottom-color: #1f77b4 !important;
+}
+
+code, pre, kbd, samp {
+    background-color: #f3f4f6 !important;
+    color: #24292f !important;
+    border-radius: 4px !important;
+}
+
+pre code {
+    background-color: transparent !important;
+}
+
+.stButton > button {
+    background-color: #ffffff !important;
+    color: #24292f !important;
+    border: 1px solid #d0d7de !important;
+}
+
+.stButton > button:hover {
+    background-color: #f3f4f6 !important;
+    border-color: #1f77b4 !important;
+}
+
+.stButton > button[kind="primary"] {
+    background-color: #1f77b4 !important;
+    color: #ffffff !important;
+    border-color: #1f77b4 !important;
+}
+
+a, a:visited {
+    color: #1f77b4 !important;
+}
+
+hr {
+    border-color: #e1e4e8 !important;
+}
